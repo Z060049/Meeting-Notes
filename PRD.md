@@ -11,6 +11,26 @@ Core value:
 - Fast, searchable Markdown output for Obsidian or any notes app
 - Optional privacy-first local processing mode
 
+## Current implementation status
+
+Status as of Jun 24, 2026:
+- Native macOS Swift/SwiftUI menu-bar MVP has been implemented.
+- The app currently runs as a local development `.app` bundle built from Swift Package Manager.
+- Manual menu-bar recording works for the tested happy path.
+- Microphone and system audio are captured into separate temporary files.
+- OpenAI API mode can transcribe, summarize, and export Markdown successfully.
+- Markdown output has been validated with a short real recording and saved to `~/Documents/AutoScribe/`.
+- Local processing remains deferred.
+
+Current development workflow:
+- Build the local test app with `./scripts/build-dev-app.sh`.
+- Launch the app with `open .build/AutoScribe.app`.
+- For shortcut testing, grant Accessibility permission to `.build/AutoScribe.app`.
+- Store the OpenAI API key through the app settings UI; the key is saved in macOS Keychain.
+
+Validated output example:
+- A short recording successfully generated a Markdown file with metadata, summary sections, and separate `Microphone` / `System Audio` transcript sections.
+
 ## 2) Problem statement
 
 People regularly lose important meeting details because:
@@ -35,6 +55,16 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 - Support two processing modes:
   - Local LLM/STT path (privacy-first, no API cost)
   - Third-party API path (simpler to ship first)
+
+### Implementation choices made for MVP
+- App stack: native macOS Swift/SwiftUI menu-bar app.
+- Packaging during development: Swift Package Manager executable wrapped into a local `.app` bundle.
+- API provider: OpenAI for speech-to-text and summarization.
+- API key storage: macOS Keychain.
+- Audio capture strategy:
+  - Microphone: AVFoundation recording to `.wav`.
+  - System audio: ScreenCaptureKit recording to `.m4a`.
+- Speaker labeling in MVP: best-effort by capture stream (`Microphone` vs `System Audio`), not true diarization.
 
 ### Non-goals (v1)
 - Live captions in-call
@@ -63,6 +93,8 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 
 ### 6.1 Recording control
 - Global hotkey: double-tap Command key to start/stop recording
+- First-run UX should explain that double-tap Command requires macOS Accessibility permission.
+- If Accessibility permission is not granted, manual menu-bar start/stop should still work.
 - Tray/menu bar presence with clear state:
   - Idle
   - Recording
@@ -81,6 +113,7 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 
 ### 6.3 Transcription + summarization
 - Transcribe meeting audio into diarized or speaker-labeled text where possible
+- For MVP, label transcript segments by capture source (`Microphone`, `System Audio`) rather than full speaker diarization.
 - Produce meeting summary with:
   - Key points
   - Decisions
@@ -103,6 +136,7 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 - Configure output folder
 - Configure summary depth (brief/standard/detailed)
 - Configure consent reminder prompt before capture
+- Configure/store OpenAI API key securely via Keychain
 
 ## 7) User experience requirements
 
@@ -115,6 +149,7 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 
 - Explicitly warn users about local laws regarding recording consent
 - First-run consent/compliance checklist
+- First-run Accessibility permission guidance for global shortcut support
 - Clear indicator when recording is active
 - Local mode:
   - Audio/transcript stays on device
@@ -191,21 +226,61 @@ Phase 3:
 
 - Audio capture complexity on macOS
   - Mitigation: early prototype and stress test audio routing cases
+- macOS permission friction
+  - Mitigation: first-run onboarding, settings deep links, refresh status, and clear manual fallback
 - Legal/compliance concerns
   - Mitigation: strong consent UX + jurisdiction reminders
 - Summary hallucinations or missed context
   - Mitigation: keep transcript + summary side-by-side, improve prompts/models
+- Transcription hallucinations on silent or near-empty audio
+  - Mitigation: skip tiny system-audio files before sending to STT; add stronger silence detection in a future pass
 - High latency for long recordings
   - Mitigation: chunked transcription and progress indicators
+
+## 12.1 Bugs found and fixed during MVP testing
+
+- Standard copy/paste did not work in the OpenAI API key field.
+  - Cause: the menu-bar app did not install a normal macOS Edit menu.
+  - Fix: added Cut, Copy, Paste, and Select All menu commands.
+- Double-tap Command did not trigger recording during development testing.
+  - Cause: macOS Accessibility permission was not granted to the launched app/process.
+  - Fix: added diagnostics, first-run permission guidance, settings deep link, and a dev `.app` bundle so AutoScribe appears clearly in Accessibility settings.
+- Accessibility settings were confusing when launching with `swift run`.
+  - Cause: macOS associated permissions with the launcher/build artifact rather than a normal app.
+  - Fix: added `scripts/build-dev-app.sh` to create `.build/AutoScribe.app` for realistic local permission testing.
+- System audio recording failed with `The audio writer was not available`.
+  - Cause: `.m4a` `AVAssetWriterInput` lacked explicit AAC output settings.
+  - Fix: configured AAC sample rate, channel count, and bit rate for system audio output.
+- OpenAI transcription rejected microphone audio.
+  - Cause: microphone was recorded as `.caf`, which OpenAI speech-to-text does not support.
+  - Fix: switched microphone recording to `.wav` and selected upload MIME types by extension.
+- Processing failed with an invalid summary response.
+  - Cause: summary parsing expected a single exact JSON response shape.
+  - Fix: requested strict JSON schema from OpenAI, added response-shape fallbacks, and improved error diagnostics.
+- Silent or near-silent system audio produced plausible fake transcript text.
+  - Cause: STT can hallucinate on tiny/silent audio files.
+  - Fix: added a first-pass guard that skips very small system-audio files and logs captured file sizes for tuning.
+
+## 12.2 Known remaining issues and follow-ups
+
+- Accessibility permission is still reported as not trusted in current testing until the user grants permission to `.build/AutoScribe.app` and relaunches.
+- The current `.app` bundle is a development wrapper, not a signed/notarized production app.
+- System-audio silence detection is currently based on file size; it should be upgraded to real audio-level/silence analysis.
+- System audio capture needs broader testing across Zoom, Google Meet, Teams, browser playback, speakers, headphones, and phone-call routing.
+- Keychain prompts are visible in the development build and may need a clearer production signing/access-group setup.
+- Local processing mode is not implemented.
+- Auto-start at login is not implemented.
+- Long recordings are not chunked yet, so latency and API limits need more work.
 
 ## 13) Open questions
 
 - Should inactivity auto-stop be based on silence, no system audio, or both?
-- Is "double Command" the final shortcut, or should users configure any global hotkey?
+- Is "double Command" the final shortcut, or should users configure any global hotkey after MVP?
 - Should we store raw audio long-term or delete by default after transcript generation?
 - Do we require speaker diarization in MVP or treat it as best-effort?
-- Which API provider is preferred for MVP (cost vs quality vs retention policy)?
+- Which OpenAI transcription/summarization models should be used for cost/quality tuning?
 - What minimum Mac hardware should local mode officially support?
+- What is the right production onboarding copy for Accessibility, microphone, and system audio permissions?
 
 ## 14) MVP definition (ship criteria)
 
