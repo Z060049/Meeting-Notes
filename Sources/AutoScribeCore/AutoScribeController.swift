@@ -15,6 +15,7 @@ public final class AutoScribeController: ObservableObject {
     private let markdownExporter: MarkdownExporter
     private var processingProvider: ProcessingProvider
     private var inactivityMonitor: InactivityMonitor?
+    private var isStartingRecording = false
 
     public init(
         settingsStore: SettingsStore = SettingsStore(),
@@ -92,6 +93,11 @@ public final class AutoScribeController: ObservableObject {
 
     @MainActor public func startRecording() {
         addDiagnostic("Start recording requested.")
+        guard !isStartingRecording else {
+            addDiagnostic("Recording startup is already in progress.", level: .warning)
+            return
+        }
+
         guard settings.hasAcceptedConsentChecklist else {
             setState(.failed("Please accept the recording consent checklist before starting."))
             return
@@ -106,7 +112,8 @@ public final class AutoScribeController: ObservableObject {
         addDiagnostic("Recording session \(Self.shortSessionID(session.id)) started.")
         addDiagnostic("Recording output folder: \(settings.outputDirectory.path)")
         addDiagnostic("Recording mode: \(settings.processingMode.rawValue), inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s")
-        setState(.recording(session))
+        addDiagnostic("Audio capture startup in progress.")
+        isStartingRecording = true
         lastError = nil
 
         Task {
@@ -117,6 +124,8 @@ public final class AutoScribeController: ObservableObject {
                 }
                 let warnings = try await audioCaptureService.start(session: session)
                 await MainActor.run {
+                    self.isStartingRecording = false
+                    self.setState(.recording(session))
                     self.addDiagnostic("Audio capture started.")
                     for warning in warnings {
                         self.addDiagnostic(warning, level: .warning)
@@ -124,6 +133,7 @@ public final class AutoScribeController: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
+                    self.isStartingRecording = false
                     self.fail(error)
                 }
             }
@@ -138,6 +148,9 @@ public final class AutoScribeController: ObservableObject {
                 inactivityMonitor?.stop()
                 inactivityMonitor = nil
                 addDiagnostic("Audio capture stopped. Files: \(result.files.map { $0.url.lastPathComponent }.joined(separator: ", "))")
+                for diagnostic in result.diagnostics {
+                    addDiagnostic(diagnostic)
+                }
                 for file in result.files {
                     addDiagnostic("\(file.source.rawValue) file size: \(Self.fileSizeDescription(for: file.url))")
                 }

@@ -260,13 +260,16 @@ Phase 3:
 - Silent or near-silent system audio produced plausible fake transcript text.
   - Cause: STT can hallucinate on tiny/silent audio files.
   - Fix: added a first-pass guard that skips very small system-audio files and logs captured file sizes for tuning.
+- AirPods/Bluetooth routes were blocked after earlier testing found they could leave the app in a headless/stuck recording state.
+  - Cause: startup rejected any route whose device name contained AirPods/Bluetooth, and the UI entered `Recording` before capture startup had actually succeeded.
+  - Fix: added route capability metadata, made startup transactional, allowed AirPods routes, preferred ScreenCaptureKit before Core Audio Tap for Bluetooth output, and preserved microphone recording with clear diagnostics if system audio fails.
 
 ## 12.2 Known remaining issues and follow-ups
 
 - Accessibility permission is still reported as not trusted in current testing until the user grants permission to `.build/AutoScribe.app` and relaunches.
 - The current `.app` bundle is a development wrapper, not a signed/notarized production app.
 - System-audio silence detection is currently based on file size; it should be upgraded to real audio-level/silence analysis.
-- System audio capture needs broader testing across Zoom, Google Meet, Teams, browser playback, speakers, headphones, and phone-call routing.
+- System audio capture needs broader manual testing across Zoom, Google Meet, Teams, browser playback, speakers, wired headphones, AirPods/Bluetooth routes, and phone-call routing.
 - Keychain prompts are visible in the development build and may need a clearer production signing/access-group setup.
 - Local processing mode is not implemented.
 - Auto-start at login is not implemented.
@@ -287,7 +290,7 @@ Checklist:
 - Zoom recording test.
 - Google Meet recording test.
 - Microsoft Teams recording test.
-- Headphones vs MacBook speakers.
+- Headphones/AirPods vs MacBook speakers.
 - Phone-call audio routed through the Mac.
 - Short recording under 30 seconds.
 - Longer recording over 5 minutes.
@@ -305,7 +308,7 @@ Goal: make capture and transcription reliable enough for real meetings.
 Work items:
 - Replace file-size-based system-audio silence detection with real audio-level or waveform analysis.
 - Avoid sending empty or silent streams to transcription.
-- Improve handling of audio route changes, such as headphones, speaker changes, and unplugged devices.
+- Improve handling of mid-recording audio route changes, such as headphones, speaker changes, and unplugged devices.
 - Add clearer diagnostics for microphone permission, system-audio permission, and capture failures.
 - Preserve source-stream metadata so Markdown can explain which streams were captured and which were skipped.
 

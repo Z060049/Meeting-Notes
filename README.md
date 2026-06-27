@@ -74,4 +74,6 @@ The smallest smoke pass is:
 - System-audio-only browser playback recording.
 - Combined mic + browser playback recording.
 
+AirPods/Bluetooth routes are no longer blocked at startup. When Bluetooth output is active, AutoScribe prefers the ScreenCaptureKit system-audio backend before falling back to Core Audio Tap and logs route/backend diagnostics if system audio is unavailable.
+
 For a production distributable, sign and notarize the app bundle.

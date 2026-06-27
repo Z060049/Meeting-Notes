@@ -14,6 +14,17 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
     private var audioFile: AVAudioFile?
     private var audioFormat: AVAudioFormat?
     private var outputURL: URL?
+    private let statsLock = NSLock()
+    private var buffersReceived = 0
+    private var framesReceived = 0
+    private var bytesReceived = 0
+    private var writeErrors = 0
+
+    public var diagnosticSummary: String? {
+        statsLock.lock()
+        defer { statsLock.unlock() }
+        return "Core Audio Tap buffers: \(buffersReceived), frames: \(framesReceived), bytes: \(bytesReceived), write errors: \(writeErrors)"
+    }
 
     public init() {}
 
@@ -47,22 +58,33 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
             let aggregateDeviceID = try Self.createAggregateDevice(tapUUID: tapUUID)
             self.aggregateDeviceID = aggregateDeviceID
 
-            let file = try AVAudioFile(forWriting: url, settings: format.settings)
+            let settings: [String: Any] = [
+                AVFormatIDKey: streamDescription.mFormatID,
+                AVSampleRateKey: format.sampleRate,
+                AVNumberOfChannelsKey: Int(format.channelCount)
+            ]
+            let file = try AVAudioFile(
+                forWriting: url,
+                settings: settings,
+                commonFormat: .pcmFormatFloat32,
+                interleaved: format.isInterleaved
+            )
             self.audioFile = file
             self.audioFormat = format
             self.outputURL = url
+            resetStats()
 
             var ioProcID: AudioDeviceIOProcID?
             let ioStatus = AudioDeviceCreateIOProcIDWithBlock(&ioProcID, aggregateDeviceID, ioQueue) { [weak self] _, inputData, _, _, _ in
                 self?.handle(inputData: inputData)
             }
-            try Self.check(ioStatus, operation: "AudioDeviceCreateIOProcIDWithBlock")
+            try Self.check(ioStatus, operation: "AudioDeviceCreateIOProcIDWithBlock for aggregate device \(aggregateDeviceID)")
             guard let ioProcID else {
                 throw AudioCaptureError.systemAudioBackendUnavailable("Core Audio did not return an IO process identifier.")
             }
             self.ioProcID = ioProcID
 
-            try Self.check(AudioDeviceStart(aggregateDeviceID, ioProcID), operation: "AudioDeviceStart")
+            try Self.check(AudioDeviceStart(aggregateDeviceID, ioProcID), operation: "AudioDeviceStart for aggregate device \(aggregateDeviceID)")
             return url
         } catch {
             cleanup()
@@ -84,6 +106,7 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
             return
         }
 
+        let bytes = Self.byteCount(in: inputData)
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: audioFormat,
             bufferListNoCopy: inputData,
@@ -94,10 +117,32 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
 
         do {
             try audioFile.write(from: buffer)
+            recordBuffer(frameCount: Int(buffer.frameLength), byteCount: bytes, writeFailed: false)
             onAudioLevel?(buffer.rootMeanSquarePower)
         } catch {
+            recordBuffer(frameCount: Int(buffer.frameLength), byteCount: bytes, writeFailed: true)
             onAudioLevel?(0)
         }
+    }
+
+    private func resetStats() {
+        statsLock.lock()
+        buffersReceived = 0
+        framesReceived = 0
+        bytesReceived = 0
+        writeErrors = 0
+        statsLock.unlock()
+    }
+
+    private func recordBuffer(frameCount: Int, byteCount: Int, writeFailed: Bool) {
+        statsLock.lock()
+        buffersReceived += 1
+        framesReceived += frameCount
+        bytesReceived += byteCount
+        if writeFailed {
+            writeErrors += 1
+        }
+        statsLock.unlock()
     }
 
     private func cleanup() {
@@ -142,6 +187,8 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
     private static func createAggregateDevice(tapUUID: UUID) throws -> AudioDeviceID {
         let outputDeviceID = try defaultOutputDeviceID()
         let outputDeviceUID = try deviceUID(for: outputDeviceID)
+        let outputDeviceName = deviceName(for: outputDeviceID) ?? "unknown"
+        let outputDescription = "\(outputDeviceName) (uid: \(outputDeviceUID))"
         let aggregateUID = "com.autoscribe.dev.system-audio.\(UUID().uuidString)"
 
         let description: [String: Any] = [
@@ -165,14 +212,14 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
         var aggregateDeviceID = AudioDeviceID(kAudioObjectUnknown)
         try check(
             AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregateDeviceID),
-            operation: "AudioHardwareCreateAggregateDevice"
+            operation: "AudioHardwareCreateAggregateDevice for output \(outputDescription)"
         )
         return aggregateDeviceID
     }
 
     private static func defaultOutputDeviceID() throws -> AudioDeviceID {
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mSelector: kAudioHardwarePropertyDefaultSystemOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
@@ -181,7 +228,7 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
 
         try check(
             AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID),
-            operation: "AudioObjectGetPropertyData(kAudioHardwarePropertyDefaultOutputDevice)"
+            operation: "AudioObjectGetPropertyData(kAudioHardwarePropertyDefaultSystemOutputDevice)"
         )
         return deviceID
     }
@@ -197,9 +244,26 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
 
         try check(
             AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &uid),
-            operation: "AudioObjectGetPropertyData(kAudioDevicePropertyDeviceUID)"
+            operation: "AudioObjectGetPropertyData(kAudioDevicePropertyDeviceUID) for output device \(deviceID)"
         )
         return uid as String
+    }
+
+    private static func deviceName(for deviceID: AudioDeviceID) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var name: CFString = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &name)
+
+        guard status == noErr else {
+            return nil
+        }
+
+        return name as String
     }
 
     private static func check(_ status: OSStatus, operation: String) throws {
@@ -208,6 +272,13 @@ public final class CoreAudioTapSystemAudioRecorder: SystemAudioRecording, @unche
                 throw AudioCaptureError.systemAudioPermissionDenied
             }
             throw AudioCaptureError.coreAudioError(operation: operation, status: status)
+        }
+    }
+
+    private static func byteCount(in audioBufferList: UnsafePointer<AudioBufferList>) -> Int {
+        let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: audioBufferList))
+        return buffers.reduce(0) { total, buffer in
+            total + Int(buffer.mDataByteSize)
         }
     }
 }

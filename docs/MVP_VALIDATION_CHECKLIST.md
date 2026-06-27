@@ -217,13 +217,18 @@ Result:
 
 Purpose: validate audio route differences.
 
-Run the combined mic/system test twice:
+Run the combined mic/system test for each route:
 - [ ] MacBook speakers.
-- [ ] Wired or Bluetooth headphones.
+- [ ] Wired headphones.
+- [ ] AirPods mic + AirPods output.
+- [ ] AirPods output + MacBook microphone.
+- [ ] MacBook output + AirPods microphone, if macOS permits that route.
 
 Expected result:
-- Microphone capture works in both routes.
-- System audio capture works in both routes or produces clear diagnostics if route-specific capture fails.
+- Microphone capture works with MacBook microphone and wired microphones.
+- AirPods/Bluetooth routes start recording when microphone capture produces buffers.
+- System audio capture works when output is routed to speakers or supported headphones, or produces clear diagnostics if route-specific capture fails.
+- If system audio capture fails on an AirPods output route, microphone recording continues and diagnostics identify each failed backend.
 
 Result:
 - Pass/Fail:

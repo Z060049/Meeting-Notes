@@ -3,8 +3,11 @@ import Foundation
 
 public final class MicrophoneRecorder: @unchecked Sendable {
     private let engine = AVAudioEngine()
+    private let fileLock = NSLock()
     private var audioFile: AVAudioFile?
     private var outputURL: URL?
+    private var firstBufferContinuation: CheckedContinuation<Bool, Never>?
+    private var didReceiveFirstBuffer = false
 
     public var onAudioLevel: ((Float) -> Void)?
 
@@ -22,35 +25,66 @@ public final class MicrophoneRecorder: @unchecked Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
         let url = directory.appendingPathComponent("microphone.wav")
-        let file = try AVAudioFile(
-            forWriting: url,
-            settings: [
-                AVFormatIDKey: kAudioFormatLinearPCM,
-                AVSampleRateKey: format.sampleRate,
-                AVNumberOfChannelsKey: Int(format.channelCount),
-                AVLinearPCMBitDepthKey: 16,
-                AVLinearPCMIsFloatKey: false,
-                AVLinearPCMIsBigEndianKey: false
-            ]
-        )
 
-        input.installTap(onBus: 0, bufferSize: 4_096, format: format) { [weak self] buffer, _ in
+        engine.stop()
+        engine.reset()
+        input.removeTap(onBus: 0)
+
+        outputURL = url
+        didReceiveFirstBuffer = false
+        input.installTap(onBus: 0, bufferSize: 4_096, format: nil) { [weak self] buffer, _ in
+            guard let self else {
+                return
+            }
+
             do {
+                let file = try self.audioFile(for: buffer, url: url)
                 try file.write(from: buffer)
-                self?.onAudioLevel?(buffer.rootMeanSquarePower)
+                self.markFirstBufferReceived()
+                self.onAudioLevel?(buffer.rootMeanSquarePower)
             } catch {
-                self?.onAudioLevel?(0)
+                self.onAudioLevel?(0)
             }
         }
 
         engine.prepare()
         try engine.start()
 
-        audioFile = file
-        outputURL = url
         return url
+    }
+
+    public func waitForFirstBuffer(timeoutSeconds: TimeInterval) async -> Bool {
+        if didReceiveFirstBuffer {
+            return true
+        }
+
+        return await withTaskGroup(of: Bool.self) { group in
+            group.addTask { [weak self] in
+                guard let self else {
+                    return false
+                }
+                return await withCheckedContinuation { continuation in
+                    self.fileLock.lock()
+                    if self.didReceiveFirstBuffer {
+                        self.fileLock.unlock()
+                        continuation.resume(returning: true)
+                    } else {
+                        self.firstBufferContinuation = continuation
+                        self.fileLock.unlock()
+                    }
+                }
+            }
+
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                return false
+            }
+
+            let result = await group.next() ?? false
+            group.cancelAll()
+            return result
+        }
     }
 
     public func stop() throws -> URL {
@@ -60,9 +94,45 @@ public final class MicrophoneRecorder: @unchecked Sendable {
 
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+        resumeFirstBufferContinuationIfNeeded()
         audioFile = nil
         self.outputURL = nil
         return outputURL
+    }
+
+    private func markFirstBufferReceived() {
+        fileLock.lock()
+        didReceiveFirstBuffer = true
+        let continuation = firstBufferContinuation
+        firstBufferContinuation = nil
+        fileLock.unlock()
+        continuation?.resume(returning: true)
+    }
+
+    private func resumeFirstBufferContinuationIfNeeded() {
+        fileLock.lock()
+        let continuation = firstBufferContinuation
+        firstBufferContinuation = nil
+        fileLock.unlock()
+        continuation?.resume(returning: false)
+    }
+
+    private func audioFile(for buffer: AVAudioPCMBuffer, url: URL) throws -> AVAudioFile {
+        fileLock.lock()
+        defer { fileLock.unlock() }
+
+        if let audioFile {
+            return audioFile
+        }
+
+        let format = buffer.format
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            throw AudioCaptureError.writerUnavailable
+        }
+
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        audioFile = file
+        return file
     }
 
     private func requestMicrophoneAccess() async -> Bool {
@@ -72,6 +142,7 @@ public final class MicrophoneRecorder: @unchecked Sendable {
             }
         }
     }
+
 }
 
 private extension AVAudioPCMBuffer {

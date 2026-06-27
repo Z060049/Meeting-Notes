@@ -13,10 +13,12 @@ public struct CapturedAudioFile: Equatable, Sendable {
 public struct AudioCaptureResult: Equatable, Sendable {
     public let session: RecordingSession
     public let files: [CapturedAudioFile]
+    public let diagnostics: [String]
 
-    public init(session: RecordingSession, files: [CapturedAudioFile]) {
+    public init(session: RecordingSession, files: [CapturedAudioFile], diagnostics: [String] = []) {
         self.session = session
         self.files = files
+        self.diagnostics = diagnostics
     }
 }
 
@@ -27,6 +29,8 @@ public enum AudioCaptureError: Error, LocalizedError {
     case systemAudioPermissionDenied
     case systemAudioBackendUnavailable(String)
     case coreAudioError(operation: String, status: OSStatus)
+    case captureStartupTimedOut(String)
+    case unsupportedInputRoute(String)
     case noDisplayAvailable
     case writerUnavailable
 
@@ -44,6 +48,10 @@ public enum AudioCaptureError: Error, LocalizedError {
             message
         case .coreAudioError(let operation, let status):
             "\(operation) failed with Core Audio status \(status)."
+        case .captureStartupTimedOut(let message):
+            message
+        case .unsupportedInputRoute(let message):
+            message
         case .noDisplayAvailable:
             "No display was available for system audio capture."
         case .writerUnavailable:

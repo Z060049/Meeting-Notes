@@ -9,15 +9,7 @@ public final class DualAudioCaptureService: @unchecked Sendable {
 
     public var onAudioLevel: ((AudioSource, Float) -> Void)? {
         didSet {
-            microphoneRecorder.onAudioLevel = { [weak self] level in
-                self?.onAudioLevel?(.microphone, level)
-            }
-
-            for recorder in systemAudioRecorders {
-                recorder.onAudioLevel = { [weak self] level in
-                    self?.onAudioLevel?(.systemAudio, level)
-                }
-            }
+            installAudioLevelHandlers()
         }
     }
 
@@ -28,6 +20,7 @@ public final class DualAudioCaptureService: @unchecked Sendable {
     public init(microphoneRecorder: MicrophoneRecorder = MicrophoneRecorder()) {
         self.microphoneRecorder = microphoneRecorder
         self.systemAudioRecorders = SystemAudioRecorderFactory.makePreferredRecorders()
+        installAudioLevelHandlers()
     }
 
     public func start(session: RecordingSession) async throws -> [String] {
@@ -42,13 +35,28 @@ public final class DualAudioCaptureService: @unchecked Sendable {
         currentSession = session
 
         do {
+            let route = AudioRouteInspector.currentRoute()
+            systemAudioRecorders = SystemAudioRecorderFactory.makePreferredRecorders(route: route)
+            installAudioLevelHandlers()
+            warnings.append("Active audio route: \(route.description)")
+            if route.usesBluetoothInput || route.usesBluetoothOutput {
+                warnings.append("Bluetooth audio route detected. AutoScribe will attempt recording with route-aware backend fallback.")
+            }
+
             let microphoneURL = try await microphoneRecorder.start(in: session.temporaryDirectory)
             files.append(CapturedAudioFile(source: .microphone, url: microphoneURL))
             currentFiles = files
 
+            guard await microphoneRecorder.waitForFirstBuffer(timeoutSeconds: 2) else {
+                throw AudioCaptureError.captureStartupTimedOut(
+                    "Microphone capture did not produce a writable audio buffer within 2 seconds. Check the selected input device or AirPods route."
+                )
+            }
+            warnings.append("Microphone capture started.")
+
             for recorder in systemAudioRecorders {
                 do {
-                    warnings.append("System audio backend: \(recorder.backendName)")
+                    warnings.append("Starting system audio backend \(recorder.backendName) for route: \(route.description)")
                     let systemURL = try await recorder.start(in: session.temporaryDirectory)
                     files.append(CapturedAudioFile(source: .systemAudio, url: systemURL))
                     activeSystemAudioRecorder = recorder
@@ -61,7 +69,7 @@ public final class DualAudioCaptureService: @unchecked Sendable {
             }
 
             if activeSystemAudioRecorder == nil {
-                warnings.append("System audio capture unavailable: all configured backends failed.")
+                warnings.append("System audio capture unavailable: all configured backends failed. Microphone recording continued.")
             }
 
             currentFiles = files
@@ -78,12 +86,25 @@ public final class DualAudioCaptureService: @unchecked Sendable {
         }
     }
 
+    private func installAudioLevelHandlers() {
+        microphoneRecorder.onAudioLevel = { [weak self] level in
+            self?.onAudioLevel?(.microphone, level)
+        }
+
+        for recorder in systemAudioRecorders {
+            recorder.onAudioLevel = { [weak self] level in
+                self?.onAudioLevel?(.systemAudio, level)
+            }
+        }
+    }
+
     public func stop() async throws -> AudioCaptureResult {
         guard let session = currentSession else {
             throw AudioCaptureError.notRecording
         }
 
         var files: [CapturedAudioFile] = []
+        var diagnostics: [String] = []
         let microphoneURL = try microphoneRecorder.stop()
         files.append(CapturedAudioFile(source: .microphone, url: microphoneURL))
 
@@ -91,6 +112,9 @@ public final class DualAudioCaptureService: @unchecked Sendable {
            let recorder = activeSystemAudioRecorder {
             let systemURL = try await recorder.stop()
             files.append(CapturedAudioFile(source: .systemAudio, url: systemURL))
+            if let summary = recorder.diagnosticSummary {
+                diagnostics.append(summary)
+            }
         }
 
         var finishedSession = session.finished
@@ -98,6 +122,6 @@ public final class DualAudioCaptureService: @unchecked Sendable {
         currentSession = nil
         currentFiles = []
         activeSystemAudioRecorder = nil
-        return AudioCaptureResult(session: finishedSession, files: files)
+        return AudioCaptureResult(session: finishedSession, files: files, diagnostics: diagnostics)
     }
 }
