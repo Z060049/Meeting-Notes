@@ -2,7 +2,8 @@ import Foundation
 
 public final class DualAudioCaptureService: @unchecked Sendable {
     private let microphoneRecorder: MicrophoneRecorder
-    private var systemAudioRecorder: Any?
+    private var systemAudioRecorders: [SystemAudioRecording] = []
+    private var activeSystemAudioRecorder: SystemAudioRecording?
     private var currentSession: RecordingSession?
     private var currentFiles: [CapturedAudioFile] = []
 
@@ -12,8 +13,7 @@ public final class DualAudioCaptureService: @unchecked Sendable {
                 self?.onAudioLevel?(.microphone, level)
             }
 
-            if #available(macOS 13.0, *),
-               let recorder = systemAudioRecorder as? SystemAudioRecorder {
+            for recorder in systemAudioRecorders {
                 recorder.onAudioLevel = { [weak self] level in
                     self?.onAudioLevel?(.systemAudio, level)
                 }
@@ -27,12 +27,10 @@ public final class DualAudioCaptureService: @unchecked Sendable {
 
     public init(microphoneRecorder: MicrophoneRecorder = MicrophoneRecorder()) {
         self.microphoneRecorder = microphoneRecorder
-        if #available(macOS 13.0, *) {
-            self.systemAudioRecorder = SystemAudioRecorder()
-        }
+        self.systemAudioRecorders = SystemAudioRecorderFactory.makePreferredRecorders()
     }
 
-    public func start(session: RecordingSession) async throws {
+    public func start(session: RecordingSession) async throws -> [String] {
         guard currentSession == nil else {
             throw AudioCaptureError.alreadyRecording
         }
@@ -40,27 +38,42 @@ public final class DualAudioCaptureService: @unchecked Sendable {
         try FileManager.default.createDirectory(at: session.temporaryDirectory, withIntermediateDirectories: true)
 
         var files: [CapturedAudioFile] = []
+        var warnings: [String] = []
         currentSession = session
 
         do {
             let microphoneURL = try await microphoneRecorder.start(in: session.temporaryDirectory)
             files.append(CapturedAudioFile(source: .microphone, url: microphoneURL))
+            currentFiles = files
 
-            if #available(macOS 13.0, *),
-               let recorder = systemAudioRecorder as? SystemAudioRecorder {
-                let systemURL = try await recorder.start(in: session.temporaryDirectory)
-                files.append(CapturedAudioFile(source: .systemAudio, url: systemURL))
+            for recorder in systemAudioRecorders {
+                do {
+                    warnings.append("System audio backend: \(recorder.backendName)")
+                    let systemURL = try await recorder.start(in: session.temporaryDirectory)
+                    files.append(CapturedAudioFile(source: .systemAudio, url: systemURL))
+                    activeSystemAudioRecorder = recorder
+                    warnings.append("System audio capture started with \(recorder.backendName).")
+                    break
+                } catch {
+                    let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    warnings.append("System audio backend \(recorder.backendName) unavailable: \(message)")
+                }
+            }
+
+            if activeSystemAudioRecorder == nil {
+                warnings.append("System audio capture unavailable: all configured backends failed.")
             }
 
             currentFiles = files
+            return warnings
         } catch {
             _ = try? microphoneRecorder.stop()
-            if #available(macOS 13.0, *),
-               let recorder = systemAudioRecorder as? SystemAudioRecorder {
+            if let recorder = activeSystemAudioRecorder {
                 _ = try? await recorder.stop()
             }
             currentSession = nil
             currentFiles = []
+            activeSystemAudioRecorder = nil
             throw error
         }
     }
@@ -74,14 +87,17 @@ public final class DualAudioCaptureService: @unchecked Sendable {
         let microphoneURL = try microphoneRecorder.stop()
         files.append(CapturedAudioFile(source: .microphone, url: microphoneURL))
 
-        if #available(macOS 13.0, *),
-           let recorder = systemAudioRecorder as? SystemAudioRecorder {
+        if currentFiles.contains(where: { $0.source == .systemAudio }),
+           let recorder = activeSystemAudioRecorder {
             let systemURL = try await recorder.stop()
             files.append(CapturedAudioFile(source: .systemAudio, url: systemURL))
         }
 
+        var finishedSession = session.finished
+        finishedSession.audioSources = Set(files.map(\.source))
         currentSession = nil
         currentFiles = []
-        return AudioCaptureResult(session: session.finished, files: files)
+        activeSystemAudioRecorder = nil
+        return AudioCaptureResult(session: finishedSession, files: files)
     }
 }

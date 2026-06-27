@@ -33,6 +33,95 @@ final class MarkdownExporterTests: XCTestCase {
         XCTAssertTrue(document.contents.contains("processing_mode: API"))
         XCTAssertTrue(document.contents.contains("audio_sources: Microphone, System Audio"))
         XCTAssertTrue(document.contents.contains("- Discussed launch plan"))
-        XCTAssertTrue(document.contents.contains("[00:00] Microphone: Hello"))
+        XCTAssertTrue(document.contents.contains("### Microphone"))
+        XCTAssertTrue(document.contents.contains("[00:00] Hello"))
+        XCTAssertTrue(document.contents.contains("### System Audio"))
+        XCTAssertTrue(document.contents.contains("[00:02] Hi there"))
+    }
+
+    func testRenderUsesEmptySectionFallbacks() {
+        let session = RecordingSession(
+            startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            endedAt: Date(timeIntervalSince1970: 1_700_000_030),
+            audioSources: [.microphone],
+            processingMode: .api,
+            outputDirectory: URL(fileURLWithPath: "/tmp/autoscribe"),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/autoscribe-temp")
+        )
+
+        let result = ProcessingResult(
+            transcript: Transcript(segments: [
+                TranscriptSegment(speaker: "Microphone", text: "Short test")
+            ]),
+            summary: MeetingSummary(
+                title: "Short Test",
+                keyPoints: [],
+                decisions: [],
+                actionItems: [],
+                followUps: []
+            )
+        )
+
+        let document = MarkdownExporter().render(result: result, session: session)
+
+        XCTAssertTrue(document.contents.contains("- No key points identified."))
+        XCTAssertTrue(document.contents.contains("- No decisions identified."))
+        XCTAssertTrue(document.contents.contains("- No action items identified."))
+        XCTAssertTrue(document.contents.contains("- No follow-ups identified."))
+    }
+
+    func testRenderSanitizesFilenameTitle() {
+        let session = RecordingSession(
+            startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            endedAt: Date(timeIntervalSince1970: 1_700_000_030),
+            outputDirectory: URL(fileURLWithPath: "/tmp/autoscribe"),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/autoscribe-temp")
+        )
+
+        let result = ProcessingResult(
+            transcript: Transcript(segments: []),
+            summary: MeetingSummary(
+                title: "Weekly Sync: Q&A",
+                keyPoints: [],
+                decisions: [],
+                actionItems: [],
+                followUps: []
+            )
+        )
+
+        let document = MarkdownExporter().render(result: result, session: session)
+
+        XCTAssertTrue(document.filename.hasSuffix("_weekly-sync--q-a.md"))
+    }
+
+    func testRenderShowsNotCapturedForMissingSystemAudio() {
+        let session = RecordingSession(
+            startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            endedAt: Date(timeIntervalSince1970: 1_700_000_030),
+            audioSources: [.microphone],
+            processingMode: .api,
+            outputDirectory: URL(fileURLWithPath: "/tmp/autoscribe"),
+            temporaryDirectory: URL(fileURLWithPath: "/tmp/autoscribe-temp")
+        )
+
+        let result = ProcessingResult(
+            transcript: Transcript(segments: [
+                TranscriptSegment(speaker: "Microphone", text: "Only the microphone was captured.")
+            ]),
+            summary: MeetingSummary(
+                title: "Mic Only",
+                keyPoints: [],
+                decisions: [],
+                actionItems: [],
+                followUps: []
+            )
+        )
+
+        let document = MarkdownExporter().render(result: result, session: session)
+
+        XCTAssertTrue(document.contents.contains("### Microphone"))
+        XCTAssertTrue(document.contents.contains("Only the microphone was captured."))
+        XCTAssertTrue(document.contents.contains("### System Audio"))
+        XCTAssertTrue(document.contents.contains("Not captured for this recording."))
     }
 }

@@ -42,11 +42,16 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>AutoScribe records your microphone to create meeting transcripts and notes.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>AutoScribe captures system audio to transcribe meeting participants and remote speakers.</string>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>AutoScribe uses system audio capture to record meeting audio from other participants.</string>
+    <string>AutoScribe may use screen capture as a temporary fallback for system audio recording during development.</string>
 </dict>
 </plist>
 PLIST
 
+codesign --force --deep --sign - "$APP_DIR"
+
 echo "Built $APP_DIR"
+codesign -dv --verbose=2 "$APP_DIR" 2>&1 | sed 's/^/codesign: /'
 echo "Open it with: open \"$APP_DIR\""

@@ -272,6 +272,112 @@ Phase 3:
 - Auto-start at login is not implemented.
 - Long recordings are not chunked yet, so latency and API limits need more work.
 
+## 12.3 Next implementation plan
+
+The project is currently at a working MVP prototype stage. Next work should prioritize stabilization before adding major new features.
+
+### Track 1: Testing checklist and validation
+
+Goal: establish a repeatable test matrix so future fixes can be verified consistently.
+
+Checklist:
+- Mic-only recording with no Mac output audio.
+- System-audio-only recording using browser playback, e.g. YouTube.
+- Combined mic + system-audio recording.
+- Zoom recording test.
+- Google Meet recording test.
+- Microsoft Teams recording test.
+- Headphones vs MacBook speakers.
+- Phone-call audio routed through the Mac.
+- Short recording under 30 seconds.
+- Longer recording over 5 minutes.
+- Inactivity auto-stop behavior.
+
+Acceptance criteria:
+- Each test has a clear pass/fail result.
+- Diagnostics capture enough detail to explain failures.
+- Output Markdown is saved in the configured folder for successful tests.
+
+### Track 2: Audio reliability hardening
+
+Goal: make capture and transcription reliable enough for real meetings.
+
+Work items:
+- Replace file-size-based system-audio silence detection with real audio-level or waveform analysis.
+- Avoid sending empty or silent streams to transcription.
+- Improve handling of audio route changes, such as headphones, speaker changes, and unplugged devices.
+- Add clearer diagnostics for microphone permission, system-audio permission, and capture failures.
+- Preserve source-stream metadata so Markdown can explain which streams were captured and which were skipped.
+
+Acceptance criteria:
+- Silent system audio does not produce hallucinated transcript text.
+- Real system audio is still captured and transcribed.
+- Mic capture continues to work independently if system audio fails.
+
+### Track 3: Permission and onboarding UX
+
+Goal: make first-run setup understandable for non-technical users.
+
+Work items:
+- Improve the first-run consent and permission checklist.
+- Explain why Accessibility permission is needed for double-tap Command.
+- Explain microphone and system-audio/screen-capture permissions separately.
+- Keep manual menu-bar recording available when shortcut permission is missing.
+- Add clearer recovery instructions when macOS permissions are denied or stale.
+
+Acceptance criteria:
+- A new user can understand what permissions are required and why.
+- The app clearly distinguishes optional shortcut permission from required recording permissions.
+- Permission state can be refreshed without restarting when possible.
+
+### Track 4: Production app packaging
+
+Goal: move from development `.app` bundle to a realistic distributable Mac app.
+
+Work items:
+- Create a proper macOS app bundle target or repeatable packaging pipeline.
+- Add app icon, bundle identifier, versioning, and usage descriptions.
+- Sign and eventually notarize the app.
+- Reduce confusing Keychain prompts through stable signing identity and bundle metadata.
+- Add launch-at-login support after the app bundle is stable.
+
+Acceptance criteria:
+- Users can launch AutoScribe as a normal Mac app.
+- AutoScribe appears cleanly in macOS permission lists.
+- The app can be shared for testing without requiring `swift run`.
+
+### Track 5: Output quality improvements
+
+Goal: make generated notes more consistently useful.
+
+Work items:
+- Improve Markdown template formatting.
+- Improve meeting title generation and filename cleanup.
+- Handle very short or empty recordings gracefully.
+- Make summary depth visibly affect output.
+- Consider merging mic/system transcripts into a more readable timeline while preserving source labels.
+
+Acceptance criteria:
+- Output is readable without manual cleanup for common meeting recordings.
+- Short tests do not produce misleading summaries.
+- Transcript and summary remain easy to cross-check.
+
+### Track 6: Processing scalability
+
+Goal: support longer real-world meetings without brittle API behavior.
+
+Work items:
+- Add chunked transcription for long recordings.
+- Add processing progress indicators.
+- Handle API rate limits and retryable network failures.
+- Track approximate API cost per recording duration.
+- Keep local processing as a later track after API MVP stability.
+
+Acceptance criteria:
+- Long recordings process without hitting obvious file-size or timeout issues.
+- Users get useful progress/error feedback during processing.
+- Failed processing does not lose the raw temporary recording until recovery is possible.
+
 ## 13) Open questions
 
 - Should inactivity auto-stop be based on silence, no system audio, or both?

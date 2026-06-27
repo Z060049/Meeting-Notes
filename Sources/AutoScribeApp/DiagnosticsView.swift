@@ -11,6 +11,9 @@ struct DiagnosticsView: View {
                 Text("Diagnostics")
                     .font(.headline)
                 Spacer()
+                Button("Copy Validation Report") {
+                    copyValidationReport()
+                }
                 Button("Copy") {
                     copyDiagnostics()
                 }
@@ -47,6 +50,11 @@ struct DiagnosticsView: View {
         let text = controller.diagnostics.map(\.formatted).joined(separator: "\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func copyValidationReport() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(controller.validationReportText(), forType: .string)
     }
 
     private func color(for level: DiagnosticEvent.Level) -> Color {

@@ -7,6 +7,7 @@ public final class AutoScribeController: ObservableObject {
     @Published public private(set) var lastError: String?
     @Published public private(set) var diagnostics: [DiagnosticEvent] = []
     @Published public private(set) var isAccessibilityTrusted: Bool
+    @Published public private(set) var latestOutputURL: URL?
 
     private let settingsStore: SettingsStore
     private let keychainStore: KeychainStore
@@ -101,6 +102,10 @@ public final class AutoScribeController: ObservableObject {
             outputDirectory: settings.outputDirectory
         )
 
+        latestOutputURL = nil
+        addDiagnostic("Recording session \(Self.shortSessionID(session.id)) started.")
+        addDiagnostic("Recording output folder: \(settings.outputDirectory.path)")
+        addDiagnostic("Recording mode: \(settings.processingMode.rawValue), inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s")
         setState(.recording(session))
         lastError = nil
 
@@ -110,9 +115,12 @@ public final class AutoScribeController: ObservableObject {
                 await MainActor.run {
                     self.addDiagnostic("Starting audio capture in \(session.temporaryDirectory.path)")
                 }
-                try await audioCaptureService.start(session: session)
+                let warnings = try await audioCaptureService.start(session: session)
                 await MainActor.run {
                     self.addDiagnostic("Audio capture started.")
+                    for warning in warnings {
+                        self.addDiagnostic(warning, level: .warning)
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -142,7 +150,9 @@ public final class AutoScribeController: ObservableObject {
 
     @MainActor private func process(_ capture: AudioCaptureResult) async {
         setState(.processing(capture.session))
+        addDiagnostic("Processing session \(Self.shortSessionID(capture.session.id)).")
         addDiagnostic("Processing started with \(capture.files.count) audio file(s).")
+        logTranscriptionDecisions(for: capture.files)
 
         do {
             let result = try await processingProvider.process(capture: capture, settings: settings)
@@ -153,8 +163,10 @@ public final class AutoScribeController: ObservableObject {
                 to: settings.outputDirectory
             )
             cleanupTemporaryFiles(for: capture.session)
+            latestOutputURL = outputURL
             setState(.complete(outputURL))
             addDiagnostic("Markdown saved to \(outputURL.path)")
+            addDiagnostic("Validation output: duration \(Self.durationDescription(capture.session.duration)), path \(outputURL.path)")
         } catch {
             fail(error)
         }
@@ -210,16 +222,61 @@ public final class AutoScribeController: ObservableObject {
         diagnostics.removeAll()
     }
 
+    @MainActor public func validationReportText() -> String {
+        let outputPath = latestOutputURL?.path ?? "None"
+        let error = lastError ?? "None"
+        let diagnosticsText = diagnostics.map(\.formatted).joined(separator: "\n")
+
+        return """
+        AutoScribe Validation Report
+        Generated: \(Self.reportDateFormatter.string(from: Date()))
+        State: \(state.title)
+        Output folder: \(settings.outputDirectory.path)
+        Latest output: \(outputPath)
+        Processing mode: \(settings.processingMode.rawValue)
+        Summary depth: \(settings.summaryDepth.rawValue)
+        Inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s
+        Accessibility trusted: \(isAccessibilityTrusted ? "Yes" : "No")
+        Last error: \(error)
+
+        Diagnostics:
+        \(diagnosticsText)
+        """
+    }
+
     @MainActor private func setState(_ state: AppState) {
         self.state = state
         addDiagnostic("State changed to \(state.title).")
     }
 
+    @MainActor private func logTranscriptionDecisions(for files: [CapturedAudioFile]) {
+        for file in files {
+            let decision = AudioTranscriptionPolicy.decision(for: file)
+            let action = decision.shouldTranscribe ? "sent to transcription" : "skipped"
+            let size = decision.fileSizeBytes.map { "\($0) bytes" } ?? "unknown size"
+            addDiagnostic("\(file.source.rawValue) transcription \(action): \(decision.reason) (\(size))")
+        }
+    }
+
     private static func fileSizeDescription(for url: URL) -> String {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let size = attributes[.size] as? NSNumber else {
+        guard let size = AudioTranscriptionPolicy.fileSizeBytes(for: url) else {
             return "unknown"
         }
-        return "\(size.intValue) bytes"
+        return "\(size) bytes"
     }
+
+    private static func shortSessionID(_ id: UUID) -> String {
+        String(id.uuidString.prefix(8))
+    }
+
+    private static func durationDescription(_ interval: TimeInterval) -> String {
+        "\(Int(interval.rounded()))s"
+    }
+
+    private static let reportDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        return formatter
+    }()
 }

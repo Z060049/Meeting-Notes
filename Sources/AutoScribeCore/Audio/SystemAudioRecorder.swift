@@ -4,7 +4,9 @@ import Foundation
 @preconcurrency import ScreenCaptureKit
 
 @available(macOS 13.0, *)
-public final class SystemAudioRecorder: NSObject, SCStreamOutput, @unchecked Sendable {
+public final class SystemAudioRecorder: NSObject, SystemAudioRecording, SCStreamOutput, @unchecked Sendable {
+    public let backendName = SystemAudioBackend.screenCaptureKit.rawValue
+
     private let queue = DispatchQueue(label: "com.autoscribe.system-audio")
     private var stream: SCStream?
     private var writer: AVAssetWriter?

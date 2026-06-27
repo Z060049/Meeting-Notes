@@ -63,7 +63,7 @@ public final class MarkdownExporter: @unchecked Sendable {
 
         ## Transcript
 
-        \(result.transcript.plainText)
+        \(Self.transcriptBySource(result.transcript, session: session))
         """
 
         return MarkdownDocument(filename: filename, contents: contents)
@@ -87,6 +87,60 @@ public final class MarkdownExporter: @unchecked Sendable {
             return "- \(empty)"
         }
         return values.map { "- \($0)" }.joined(separator: "\n")
+    }
+
+    private static func transcriptBySource(_ transcript: Transcript, session: RecordingSession) -> String {
+        let sections = AudioSource.allCases.map { source in
+            transcriptSection(for: source, transcript: transcript, session: session)
+        }
+
+        return sections.joined(separator: "\n\n")
+    }
+
+    private static func transcriptSection(
+        for source: AudioSource,
+        transcript: Transcript,
+        session: RecordingSession
+    ) -> String {
+        let matchingSegments = transcript.segments.filter { $0.speaker == source.rawValue }
+        let heading = "### \(source.rawValue)"
+
+        guard !matchingSegments.isEmpty else {
+            if session.audioSources.contains(source) {
+                return """
+                \(heading)
+
+                No transcript was generated for this captured source.
+                """
+            }
+
+            return """
+            \(heading)
+
+            Not captured for this recording.
+            """
+        }
+
+        let body = matchingSegments
+            .map { segment in
+                if let startTime = segment.startTime {
+                    return "[\(Self.timestamp(startTime))] \(segment.text)"
+                }
+                return segment.text
+            }
+            .joined(separator: "\n")
+
+        return """
+        \(heading)
+
+        \(body)
+        """
+    }
+
+    private static func timestamp(_ interval: TimeInterval) -> String {
+        let minutes = Int(interval) / 60
+        let seconds = Int(interval) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 
     private static let filenameDateFormatter: DateFormatter = {

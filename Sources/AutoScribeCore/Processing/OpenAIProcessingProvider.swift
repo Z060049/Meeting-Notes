@@ -36,7 +36,7 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
         var segments: [TranscriptSegment] = []
 
         for file in capture.files {
-            guard shouldTranscribe(file: file) else {
+            guard AudioTranscriptionPolicy.decision(for: file).shouldTranscribe else {
                 continue
             }
             let response = try await transcribe(fileURL: file.url, source: file.source, apiKey: apiKey)
@@ -57,7 +57,7 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
             .addingField(named: "model", value: transcriptionModel)
             .addingField(named: "response_format", value: "json")
             .addingField(named: "prompt", value: "Transcribe this \(source.rawValue.lowercased()) stream from a meeting.")
-            .addingFile(named: "file", fileURL: fileURL, contentType: Self.contentType(for: fileURL))
+            .addingFile(named: "file", fileURL: fileURL, contentType: AudioTranscriptionPolicy.contentType(for: fileURL))
             .data()
 
         let (data, response) = try await session.upload(for: request, from: body)
@@ -124,40 +124,6 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
             let message = String(data: data, encoding: .utf8) ?? "OpenAI request failed."
             throw ProcessingProviderError.apiError(message)
         }
-    }
-
-    private static func contentType(for fileURL: URL) -> String {
-        switch fileURL.pathExtension.lowercased() {
-        case "wav":
-            "audio/wav"
-        case "m4a":
-            "audio/mp4"
-        case "mp3", "mpeg", "mpga":
-            "audio/mpeg"
-        case "ogg", "oga":
-            "audio/ogg"
-        case "flac":
-            "audio/flac"
-        case "webm":
-            "audio/webm"
-        default:
-            "application/octet-stream"
-        }
-    }
-
-    private func shouldTranscribe(file: CapturedAudioFile) -> Bool {
-        guard file.source == .systemAudio else {
-            return true
-        }
-
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.url.path),
-              let size = attributes[.size] as? NSNumber else {
-            return false
-        }
-
-        // Very small ScreenCaptureKit files are often silent containers. Sending them
-        // to STT can produce plausible-looking hallucinated text.
-        return size.intValue >= 16_384
     }
 
     private static func cleanJSONText(_ text: String) -> String {

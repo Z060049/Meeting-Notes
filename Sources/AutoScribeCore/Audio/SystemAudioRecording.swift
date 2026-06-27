@@ -1,0 +1,44 @@
+import Foundation
+
+public protocol SystemAudioRecording: AnyObject, Sendable {
+    var backendName: String { get }
+    var onAudioLevel: ((Float) -> Void)? { get set }
+
+    func start(in directory: URL) async throws -> URL
+    func stop() async throws -> URL
+}
+
+public enum SystemAudioBackend: String, CaseIterable, Sendable {
+    case coreAudioTap = "Core Audio Tap"
+    case screenCaptureKit = "ScreenCaptureKit"
+}
+
+public enum SystemAudioRecorderFactory {
+    public static func makePreferredRecorders() -> [SystemAudioRecording] {
+        var recorders: [SystemAudioRecording] = []
+
+        if #available(macOS 14.2, *) {
+            recorders.append(CoreAudioTapSystemAudioRecorder())
+        }
+
+        if #available(macOS 13.0, *) {
+            recorders.append(SystemAudioRecorder())
+        }
+
+        return recorders
+    }
+
+    public static var preferredBackendNames: [String] {
+        var names: [String] = []
+
+        if #available(macOS 14.2, *) {
+            names.append(SystemAudioBackend.coreAudioTap.rawValue)
+        }
+
+        if #available(macOS 13.0, *) {
+            names.append(SystemAudioBackend.screenCaptureKit.rawValue)
+        }
+
+        return names
+    }
+}

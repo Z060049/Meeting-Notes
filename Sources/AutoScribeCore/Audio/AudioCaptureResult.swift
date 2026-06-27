@@ -25,6 +25,8 @@ public enum AudioCaptureError: Error, LocalizedError {
     case notRecording
     case microphonePermissionDenied
     case systemAudioPermissionDenied
+    case systemAudioBackendUnavailable(String)
+    case coreAudioError(operation: String, status: OSStatus)
     case noDisplayAvailable
     case writerUnavailable
 
@@ -38,6 +40,10 @@ public enum AudioCaptureError: Error, LocalizedError {
             "Microphone permission was denied."
         case .systemAudioPermissionDenied:
             "System audio capture permission was denied."
+        case .systemAudioBackendUnavailable(let message):
+            message
+        case .coreAudioError(let operation, let status):
+            "\(operation) failed with Core Audio status \(status)."
         case .noDisplayAvailable:
             "No display was available for system audio capture."
         case .writerUnavailable:

@@ -2,6 +2,17 @@ import AutoScribeCore
 import XCTest
 
 final class SettingsStoreTests: XCTestCase {
+    func testDefaultSettingsMatchMVPValidationDefaults() {
+        let settings = AppSettings()
+
+        XCTAssertEqual(settings.processingMode, .api)
+        XCTAssertEqual(settings.outputDirectory.path, FileManager.default.defaultAutoScribeOutputDirectory.path)
+        XCTAssertEqual(settings.inactivityTimeoutSeconds, 300)
+        XCTAssertEqual(settings.summaryDepth, .standard)
+        XCTAssertTrue(settings.shouldShowConsentReminder)
+        XCTAssertFalse(settings.hasAcceptedConsentChecklist)
+    }
+
     func testSaveAndLoadSettings() {
         let suiteName = "AutoScribeTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
