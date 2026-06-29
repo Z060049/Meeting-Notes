@@ -15,6 +15,11 @@ rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BUILD_DIR/AutoScribe" "$MACOS_DIR/AutoScribe"
 
+if [ -f "$ROOT_DIR/.env" ]; then
+  cp "$ROOT_DIR/.env" "$RESOURCES_DIR/.env"
+  echo "Bundled .env into app resources"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

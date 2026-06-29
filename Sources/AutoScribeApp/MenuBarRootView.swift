@@ -13,7 +13,6 @@ struct MenuBarRootView: View {
             if !controller.settings.hasAcceptedConsentChecklist {
                 ConsentChecklistView(controller: controller)
             } else {
-                shortcutPermissionStatus
                 controls
             }
 
@@ -68,10 +67,6 @@ struct MenuBarRootView: View {
             }
             .keyboardShortcut(.defaultAction)
 
-            Text("Double-tap Command from anywhere to start or stop.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
             if case .complete(let url) = controller.state {
                 Text("Saved: \(url.path)")
                     .font(.caption)
@@ -81,27 +76,4 @@ struct MenuBarRootView: View {
         }
     }
 
-    private var shortcutPermissionStatus: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: controller.isAccessibilityTrusted ? "keyboard.badge.checkmark" : "keyboard.badge.ellipsis")
-                .foregroundStyle(controller.isAccessibilityTrusted ? .green : .orange)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(controller.isAccessibilityTrusted ? "Double-Command shortcut enabled" : "Double-Command shortcut needs Accessibility permission")
-                    .font(.caption)
-                    .foregroundStyle(controller.isAccessibilityTrusted ? Color.secondary : Color.orange)
-
-                if !controller.isAccessibilityTrusted {
-                    HStack {
-                        Button("Open Settings") {
-                            NSWorkspace.shared.open(AccessibilityPermissionService.settingsURL)
-                        }
-                        Button("Refresh") {
-                            controller.refreshAccessibilityPermissionStatus()
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

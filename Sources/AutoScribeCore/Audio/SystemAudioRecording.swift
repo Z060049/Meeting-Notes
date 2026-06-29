@@ -21,43 +21,31 @@ public enum SystemAudioBackend: String, CaseIterable, Sendable {
 }
 
 public enum SystemAudioRecorderFactory {
-    public static func makePreferredRecorders(route: AudioRouteInspector.Route = AudioRouteInspector.currentRoute()) -> [SystemAudioRecording] {
+    public static func makePreferredRecorders() -> [SystemAudioRecording] {
         var recorders: [SystemAudioRecording] = []
-
-        if route.usesBluetoothOutput, #available(macOS 13.0, *) {
-            recorders.append(SystemAudioRecorder())
-        }
 
         if #available(macOS 14.2, *) {
             recorders.append(CoreAudioTapSystemAudioRecorder())
         }
 
-        if !route.usesBluetoothOutput, #available(macOS 13.0, *) {
+        if #available(macOS 13.0, *) {
             recorders.append(SystemAudioRecorder())
         }
 
         return recorders
     }
 
-    public static func preferredBackendNames(route: AudioRouteInspector.Route = AudioRouteInspector.currentRoute()) -> [String] {
+    public static var preferredBackendNames: [String] {
         var names: [String] = []
-
-        if route.usesBluetoothOutput, #available(macOS 13.0, *) {
-            names.append(SystemAudioBackend.screenCaptureKit.rawValue)
-        }
 
         if #available(macOS 14.2, *) {
             names.append(SystemAudioBackend.coreAudioTap.rawValue)
         }
 
-        if !route.usesBluetoothOutput, #available(macOS 13.0, *) {
+        if #available(macOS 13.0, *) {
             names.append(SystemAudioBackend.screenCaptureKit.rawValue)
         }
 
         return names
-    }
-
-    public static var preferredBackendNames: [String] {
-        preferredBackendNames()
     }
 }

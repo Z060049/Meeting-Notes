@@ -8,27 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var cancellables = Set<AnyCancellable>()
-    private var commandKeyMonitor: Any?
-    private var localCommandKeyMonitor: Any?
-    private var lastCommandTap: Date?
-    private var isCommandPressed = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         configureMainMenu()
         configureStatusItem()
         configurePopover()
-        configureGlobalShortcut()
         bindState()
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        if let commandKeyMonitor {
-            NSEvent.removeMonitor(commandKeyMonitor)
-        }
-        if let localCommandKeyMonitor {
-            NSEvent.removeMonitor(localCommandKeyMonitor)
-        }
     }
 
     private func configureStatusItem() {
@@ -74,24 +60,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.popover = popover
     }
 
-    private func configureGlobalShortcut() {
-        logDiagnostic("Installing double-Command shortcut monitors.")
-        logAccessibilityStatus()
-
-        commandKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleFlagsChanged(event)
-        }
-
-        localCommandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleFlagsChanged(event)
-            return event
-        }
-
-        if commandKeyMonitor == nil {
-            logDiagnostic("Global shortcut monitor was not installed.", level: .warning)
-        }
-    }
-
     private func bindState() {
         controller.$state
             .receive(on: RunLoop.main)
@@ -116,50 +84,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
-        }
-    }
-
-    private func handleFlagsChanged(_ event: NSEvent) {
-        let commandIsCurrentlyPressed = event.modifierFlags
-            .intersection(.deviceIndependentFlagsMask)
-            .contains(.command)
-
-        guard commandIsCurrentlyPressed else {
-            isCommandPressed = false
-            return
-        }
-
-        guard !isCommandPressed else {
-            return
-        }
-        isCommandPressed = true
-
-        let now = Date()
-        defer { lastCommandTap = now }
-
-        guard let lastCommandTap, now.timeIntervalSince(lastCommandTap) <= 0.45 else {
-            return
-        }
-
-        Task { @MainActor in
-            controller.addDiagnostic("Double Command shortcut detected.")
-            controller.toggleRecording()
-        }
-    }
-
-    private func logAccessibilityStatus() {
-        let trusted = AccessibilityPermissionService.isTrusted
-        logDiagnostic(
-            trusted
-                ? "Accessibility permission is trusted."
-                : "Accessibility permission is not trusted. If double-Command does not work, enable it in System Settings > Privacy & Security > Accessibility.",
-            level: trusted ? .info : .warning
-        )
-    }
-
-    private func logDiagnostic(_ message: String, level: DiagnosticEvent.Level = .info) {
-        Task { @MainActor in
-            controller.addDiagnostic(message, level: level)
         }
     }
 }

@@ -36,11 +36,9 @@ public final class DualAudioCaptureService: @unchecked Sendable {
 
         do {
             let route = AudioRouteInspector.currentRoute()
-            systemAudioRecorders = SystemAudioRecorderFactory.makePreferredRecorders(route: route)
-            installAudioLevelHandlers()
             warnings.append("Active audio route: \(route.description)")
             if route.usesBluetoothInput || route.usesBluetoothOutput {
-                warnings.append("Bluetooth audio route detected. AutoScribe will attempt recording with route-aware backend fallback.")
+                warnings.append("Bluetooth audio route detected. Using Core Audio Tap for system audio.")
             }
 
             let microphoneURL = try await microphoneRecorder.start(in: session.temporaryDirectory)

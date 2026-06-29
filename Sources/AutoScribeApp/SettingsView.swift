@@ -7,7 +7,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var settings: AppSettings
-    @State private var apiKey: String = ""
     @State private var statusMessage: String?
 
     init(controller: AutoScribeController) {
@@ -26,7 +25,10 @@ struct SettingsView: View {
                 Text("Local (later)").tag(ProcessingMode.local)
             }
 
-            SecureField("OpenAI API Key", text: $apiKey)
+            Text("Set OPENAI_API_KEY in a .env file (project root or ~/Documents/AutoScribe/.env).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Picker("Summary Depth", selection: $settings.summaryDepth) {
                 ForEach(SummaryDepth.allCases, id: \.self) { depth in
@@ -76,9 +78,6 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 460)
-        .task {
-            apiKey = (try? controller.loadOpenAIAPIKey()) ?? ""
-        }
     }
 
     private func chooseOutputFolder() {
@@ -93,15 +92,8 @@ struct SettingsView: View {
     }
 
     private func save() {
-        do {
-            controller.updateSettings(settings)
-            if !apiKey.isEmpty {
-                try controller.saveOpenAIAPIKey(apiKey)
-            }
-            statusMessage = "Settings saved."
-            dismiss()
-        } catch {
-            statusMessage = error.localizedDescription
-        }
+        controller.updateSettings(settings)
+        statusMessage = "Settings saved."
+        dismiss()
     }
 }

@@ -6,11 +6,9 @@ public final class AutoScribeController: ObservableObject {
     @Published public private(set) var settings: AppSettings
     @Published public private(set) var lastError: String?
     @Published public private(set) var diagnostics: [DiagnosticEvent] = []
-    @Published public private(set) var isAccessibilityTrusted: Bool
     @Published public private(set) var latestOutputURL: URL?
 
     private let settingsStore: SettingsStore
-    private let keychainStore: KeychainStore
     private let audioCaptureService: DualAudioCaptureService
     private let markdownExporter: MarkdownExporter
     private var processingProvider: ProcessingProvider
@@ -19,19 +17,16 @@ public final class AutoScribeController: ObservableObject {
 
     public init(
         settingsStore: SettingsStore = SettingsStore(),
-        keychainStore: KeychainStore = KeychainStore(),
         audioCaptureService: DualAudioCaptureService = DualAudioCaptureService(),
         markdownExporter: MarkdownExporter = MarkdownExporter(),
         processingProvider: ProcessingProvider? = nil
     ) {
         self.settingsStore = settingsStore
-        self.keychainStore = keychainStore
         self.audioCaptureService = audioCaptureService
         self.markdownExporter = markdownExporter
         self.settings = settingsStore.load()
-        self.isAccessibilityTrusted = AccessibilityPermissionService.isTrusted
         self.processingProvider = processingProvider ?? OpenAIProcessingProvider {
-            try keychainStore.load(account: "openai-api-key")
+            EnvironmentConfiguration.openAIAPIKey()
         }
         Task { @MainActor in
             self.addDiagnostic("Controller initialized. Output folder: \(self.settings.outputDirectory.path)")
@@ -42,38 +37,6 @@ public final class AutoScribeController: ObservableObject {
         self.settings = settings
         settingsStore.save(settings)
         addDiagnostic("Settings saved. Timeout: \(Int(settings.inactivityTimeoutSeconds))s, output: \(settings.outputDirectory.path)")
-    }
-
-    public func saveOpenAIAPIKey(_ apiKey: String) throws {
-        try keychainStore.save(apiKey, account: "openai-api-key")
-        Task { @MainActor in
-            self.addDiagnostic("OpenAI API key saved to Keychain.")
-        }
-    }
-
-    public func loadOpenAIAPIKey() throws -> String? {
-        try keychainStore.load(account: "openai-api-key")
-    }
-
-    @MainActor public func refreshAccessibilityPermissionStatus() {
-        isAccessibilityTrusted = AccessibilityPermissionService.isTrusted
-        addDiagnostic(
-            isAccessibilityTrusted
-                ? "Accessibility permission is trusted."
-                : "Accessibility permission is not trusted.",
-            level: isAccessibilityTrusted ? .info : .warning
-        )
-    }
-
-    @MainActor public func requestAccessibilityPermissionPrompt() {
-        let trusted = AccessibilityPermissionService.requestPrompt()
-        isAccessibilityTrusted = trusted
-        addDiagnostic(
-            trusted
-                ? "Accessibility permission is trusted."
-                : "Requested Accessibility permission prompt.",
-            level: trusted ? .info : .warning
-        )
     }
 
     @MainActor public func acceptConsentChecklist() {
@@ -249,7 +212,6 @@ public final class AutoScribeController: ObservableObject {
         Processing mode: \(settings.processingMode.rawValue)
         Summary depth: \(settings.summaryDepth.rawValue)
         Inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s
-        Accessibility trusted: \(isAccessibilityTrusted ? "Yes" : "No")
         Last error: \(error)
 
         Diagnostics:

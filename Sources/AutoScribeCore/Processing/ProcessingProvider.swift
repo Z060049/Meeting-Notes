@@ -13,7 +13,7 @@ public enum ProcessingProviderError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            "Add an OpenAI API key in Settings before processing recordings."
+            "Set OPENAI_API_KEY in a .env file (project root or ~/Documents/AutoScribe/.env) before processing recordings."
         case .unsupportedLocalMode:
             "Local processing is planned after the API-first MVP."
         case .invalidResponse:
