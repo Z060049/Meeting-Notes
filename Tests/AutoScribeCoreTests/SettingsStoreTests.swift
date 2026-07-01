@@ -7,7 +7,7 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertEqual(settings.processingMode, .api)
         XCTAssertEqual(settings.outputDirectory.path, FileManager.default.defaultAutoScribeOutputDirectory.path)
-        XCTAssertEqual(settings.inactivityTimeoutSeconds, 300)
+        XCTAssertEqual(settings.inactivityTimeoutSeconds, 180)
         XCTAssertEqual(settings.summaryDepth, .standard)
         XCTAssertTrue(settings.shouldShowConsentReminder)
         XCTAssertFalse(settings.hasAcceptedConsentChecklist)

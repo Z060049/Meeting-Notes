@@ -49,6 +49,14 @@ public final class InactivityMonitor: @unchecked Sendable {
         }
     }
 
+    public func restart() {
+        queue.async {
+            self.timer?.cancel()
+            self.timer = nil
+        }
+        start()
+    }
+
     private func checkTimeout() {
         guard Date().timeIntervalSince(lastActivityAt) >= timeout else {
             return

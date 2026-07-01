@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var cancellables = Set<AnyCancellable>()
+    private var isShowingSilenceAlert = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -15,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem()
         configurePopover()
         bindState()
+        bindSilencePrompt()
     }
 
     private func configureStatusItem() {
@@ -67,6 +69,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.updateStatusItem(for: state)
             }
             .store(in: &cancellables)
+    }
+
+    private func bindSilencePrompt() {
+        controller.silenceDetected
+            .receive(on: RunLoop.main)
+            .sink { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.presentSilencePrompt()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    @MainActor private func presentSilencePrompt() {
+        guard controller.state.isRecording, !isShowingSilenceAlert else {
+            return
+        }
+        isShowingSilenceAlert = true
+
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Still recording?"
+        alert.informativeText = "AutoScribe hasn't detected any audio for 3 minutes. Do you want to stop recording?"
+        alert.addButton(withTitle: "Stop Recording")
+        alert.addButton(withTitle: "Keep Recording")
+        let response = alert.runModal()
+        isShowingSilenceAlert = false
+
+        if response == .alertFirstButtonReturn {
+            controller.stopRecording()
+        } else {
+            controller.keepRecordingAfterSilence()
+        }
     }
 
     private func updateStatusItem(for state: AppState) {

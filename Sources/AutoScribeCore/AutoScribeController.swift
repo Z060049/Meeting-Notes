@@ -8,6 +8,8 @@ public final class AutoScribeController: ObservableObject {
     @Published public private(set) var diagnostics: [DiagnosticEvent] = []
     @Published public private(set) var latestOutputURL: URL?
 
+    public let silenceDetected = PassthroughSubject<Void, Never>()
+
     private let settingsStore: SettingsStore
     private let audioCaptureService: DualAudioCaptureService
     private let markdownExporter: MarkdownExporter
@@ -74,7 +76,7 @@ public final class AutoScribeController: ObservableObject {
         latestOutputURL = nil
         addDiagnostic("Recording session \(Self.shortSessionID(session.id)) started.")
         addDiagnostic("Recording output folder: \(settings.outputDirectory.path)")
-        addDiagnostic("Recording mode: \(settings.processingMode.rawValue), inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s")
+        addDiagnostic("Recording mode: \(settings.processingMode.rawValue), silence prompt after: \(Int(settings.inactivityTimeoutSeconds))s")
         addDiagnostic("Audio capture startup in progress.")
         isStartingRecording = true
         lastError = nil
@@ -149,10 +151,11 @@ public final class AutoScribeController: ObservableObject {
     }
 
     @MainActor private func configureInactivityMonitor() async {
-        let monitor = InactivityMonitor(timeout: settings.inactivityTimeoutSeconds) { [weak self] in
+        let cutoff = settings.inactivityTimeoutSeconds
+        let monitor = InactivityMonitor(timeout: cutoff) { [weak self] in
             Task { @MainActor in
-                self?.addDiagnostic("Inactivity timeout reached. Stopping recording.", level: .warning)
-                self?.stopRecording()
+                self?.addDiagnostic("No audio detected for \(Int(cutoff))s. Prompting to stop.", level: .warning)
+                self?.silenceDetected.send()
             }
         }
 
@@ -162,7 +165,12 @@ public final class AutoScribeController: ObservableObject {
 
         monitor.start()
         inactivityMonitor = monitor
-        addDiagnostic("Inactivity monitor started.")
+        addDiagnostic("Silence monitor started (prompt after \(Int(cutoff))s).")
+    }
+
+    @MainActor public func keepRecordingAfterSilence() {
+        inactivityMonitor?.restart()
+        addDiagnostic("Continuing recording after silence prompt.")
     }
 
     private func cleanupTemporaryFiles(for session: RecordingSession) {
@@ -211,7 +219,7 @@ public final class AutoScribeController: ObservableObject {
         Latest output: \(outputPath)
         Processing mode: \(settings.processingMode.rawValue)
         Summary depth: \(settings.summaryDepth.rawValue)
-        Inactivity timeout: \(Int(settings.inactivityTimeoutSeconds))s
+        Silence prompt after: \(Int(settings.inactivityTimeoutSeconds))s
         Last error: \(error)
 
         Diagnostics:

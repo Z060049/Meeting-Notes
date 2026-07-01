@@ -17,7 +17,7 @@ public struct AppSettings: Equatable, Sendable {
     public init(
         processingMode: ProcessingMode = .api,
         outputDirectory: URL = FileManager.default.defaultAutoScribeOutputDirectory,
-        inactivityTimeoutSeconds: TimeInterval = 300,
+        inactivityTimeoutSeconds: TimeInterval = 180,
         summaryDepth: SummaryDepth = .standard,
         shouldShowConsentReminder: Bool = true,
         hasAcceptedConsentChecklist: Bool = false

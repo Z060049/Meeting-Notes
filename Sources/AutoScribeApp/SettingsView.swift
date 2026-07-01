@@ -37,7 +37,7 @@ struct SettingsView: View {
             }
 
             HStack {
-                Text("Inactivity Timeout")
+                Text("Prompt after silence")
                 TextField("Seconds", value: $settings.inactivityTimeoutSeconds, format: .number)
                     .frame(width: 80)
                 Text("seconds")
