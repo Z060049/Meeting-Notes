@@ -153,17 +153,22 @@ private extension AVAudioPCMBuffer {
 
         let frameCount = Int(frameLength)
         let channelCount = Int(format.channelCount)
+        let frameStride = 16
         var sum: Float = 0
+        var sampledCount = 0
 
         for channel in 0..<channelCount {
             let samples = channelData[channel]
-            for frame in 0..<frameCount {
+            var frame = 0
+            while frame < frameCount {
                 let sample = samples[frame]
                 sum += sample * sample
+                sampledCount += 1
+                frame += frameStride
             }
         }
 
-        let mean = sum / Float(max(frameCount * max(channelCount, 1), 1))
+        let mean = sum / Float(max(sampledCount, 1))
         return sqrt(mean)
     }
 }

@@ -28,8 +28,9 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
         }
 
         let transcript = try await transcribe(capture: capture, apiKey: apiKey)
-        let summary = try await summarize(transcript: transcript, depth: settings.summaryDepth, apiKey: apiKey)
-        return ProcessingResult(transcript: transcript, summary: summary)
+        let deduplicated = TranscriptDeduplicator.deduplicate(transcript)
+        let summary = try await summarize(transcript: deduplicated, depth: settings.summaryDepth, apiKey: apiKey)
+        return ProcessingResult(transcript: deduplicated, summary: summary)
     }
 
     private func transcribe(capture: AudioCaptureResult, apiKey: String) async throws -> Transcript {
@@ -53,14 +54,20 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
-        let body = try MultipartFormData(boundary: boundary)
-            .addingField(named: "model", value: transcriptionModel)
-            .addingField(named: "response_format", value: "json")
-            .addingField(named: "prompt", value: "Transcribe this \(source.rawValue.lowercased()) stream from a meeting.")
-            .addingFile(named: "file", fileURL: fileURL, contentType: AudioTranscriptionPolicy.contentType(for: fileURL))
-            .data()
+        let bodyFileURL = try Self.writeMultipartBody(
+            boundary: boundary,
+            fields: [
+                ("model", transcriptionModel),
+                ("response_format", "json"),
+                ("prompt", "Transcribe this \(source.rawValue.lowercased()) stream from a meeting.")
+            ],
+            fileFieldName: "file",
+            fileURL: fileURL,
+            fileContentType: AudioTranscriptionPolicy.contentType(for: fileURL)
+        )
+        defer { try? FileManager.default.removeItem(at: bodyFileURL) }
 
-        let (data, response) = try await session.upload(for: request, from: body)
+        let (data, response) = try await session.upload(for: request, fromFile: bodyFileURL)
         try validate(response: response, data: data)
 
         do {
@@ -124,6 +131,44 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
             let message = String(data: data, encoding: .utf8) ?? "OpenAI request failed."
             throw ProcessingProviderError.apiError(message)
         }
+    }
+
+    private static func writeMultipartBody(
+        boundary: String,
+        fields: [(name: String, value: String)],
+        fileFieldName: String,
+        fileURL: URL,
+        fileContentType: String
+    ) throws -> URL {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("autoscribe-upload-\(UUID().uuidString)")
+        FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+
+        let writeHandle = try FileHandle(forWritingTo: tempURL)
+        defer { try? writeHandle.close() }
+
+        func write(_ string: String) throws {
+            try writeHandle.write(contentsOf: Data(string.utf8))
+        }
+
+        for field in fields {
+            try write("--\(boundary)\r\n")
+            try write("Content-Disposition: form-data; name=\"\(field.name)\"\r\n\r\n")
+            try write("\(field.value)\r\n")
+        }
+
+        try write("--\(boundary)\r\n")
+        try write("Content-Disposition: form-data; name=\"\(fileFieldName)\"; filename=\"\(fileURL.lastPathComponent)\"\r\n")
+        try write("Content-Type: \(fileContentType)\r\n\r\n")
+
+        let readHandle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? readHandle.close() }
+        while let chunk = try readHandle.read(upToCount: 1_048_576), !chunk.isEmpty {
+            try writeHandle.write(contentsOf: chunk)
+        }
+
+        try write("\r\n--\(boundary)--\r\n")
+        return tempURL
     }
 
     private static func cleanJSONText(_ text: String) -> String {
@@ -241,46 +286,3 @@ private struct ResponsesAPITextExtractor {
     }
 }
 
-private struct MultipartFormData {
-    private let boundary: String
-    private var parts: [Data] = []
-
-    init(boundary: String) {
-        self.boundary = boundary
-    }
-
-    func addingField(named name: String, value: String) -> MultipartFormData {
-        var copy = self
-        var data = Data()
-        data.append("--\(boundary)\r\n")
-        data.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-        data.append("\(value)\r\n")
-        copy.parts.append(data)
-        return copy
-    }
-
-    func addingFile(named name: String, fileURL: URL, contentType: String) throws -> MultipartFormData {
-        var copy = self
-        var data = Data()
-        data.append("--\(boundary)\r\n")
-        data.append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(fileURL.lastPathComponent)\"\r\n")
-        data.append("Content-Type: \(contentType)\r\n\r\n")
-        data.append(try Data(contentsOf: fileURL))
-        data.append("\r\n")
-        copy.parts.append(data)
-        return copy
-    }
-
-    func data() -> Data {
-        var data = Data()
-        parts.forEach { data.append($0) }
-        data.append("--\(boundary)--\r\n")
-        return data
-    }
-}
-
-private extension Data {
-    mutating func append(_ string: String) {
-        append(Data(string.utf8))
-    }
-}
