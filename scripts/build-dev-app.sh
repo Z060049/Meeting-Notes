@@ -20,6 +20,11 @@ if [ -f "$ROOT_DIR/.env" ]; then
   echo "Bundled .env into app resources"
 fi
 
+if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
+  cp "$ROOT_DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+  echo "Bundled AppIcon.icns into app resources"
+fi
+
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -35,6 +40,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>AutoScribe</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
