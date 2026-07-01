@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var popover: NSPopover?
     private var cancellables = Set<AnyCancellable>()
     private var isShowingSilenceAlert = false
+    private var isShowingProcessingAlert = false
+    private var previousState: AppState = .idle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -17,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configurePopover()
         bindState()
         bindSilencePrompt()
+        bindProcessingFailure()
     }
 
     private func configureStatusItem() {
@@ -66,9 +69,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.$state
             .receive(on: RunLoop.main)
             .sink { [weak self] state in
-                self?.updateStatusItem(for: state)
+                guard let self else { return }
+                self.handleStateTransition(to: state)
+                self.updateStatusItem(for: state)
             }
             .store(in: &cancellables)
+    }
+
+    private func handleStateTransition(to state: AppState) {
+        defer { previousState = state }
+        if case .processing = previousState, case .complete = state {
+            playCompletionSound()
+        }
+    }
+
+    private func playCompletionSound() {
+        // Gentle chime to signal transcription is done, akin to Cursor's task-complete sound.
+        NSSound(named: "Glass")?.play()
     }
 
     private func bindSilencePrompt() {
@@ -101,6 +118,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.stopRecording()
         } else {
             controller.keepRecordingAfterSilence()
+        }
+    }
+
+    private func bindProcessingFailure() {
+        controller.processingFailed
+            .receive(on: RunLoop.main)
+            .sink { [weak self] failure in
+                MainActor.assumeIsolated {
+                    self?.presentProcessingFailure(failure)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    @MainActor private func presentProcessingFailure(_ failure: ProcessingFailure) {
+        guard !isShowingProcessingAlert else {
+            return
+        }
+        isShowingProcessingAlert = true
+
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Couldn't process this recording"
+        alert.informativeText = failure.message
+        if failure.savedAudioURL != nil {
+            alert.addButton(withTitle: "Open Folder")
+        }
+        alert.addButton(withTitle: "OK")
+        let response = alert.runModal()
+        isShowingProcessingAlert = false
+
+        if response == .alertFirstButtonReturn, let url = failure.savedAudioURL {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
         }
     }
 

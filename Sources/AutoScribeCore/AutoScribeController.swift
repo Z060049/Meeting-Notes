@@ -1,6 +1,16 @@
 import Combine
 import Foundation
 
+public struct ProcessingFailure: Sendable {
+    public let message: String
+    public let savedAudioURL: URL?
+
+    public init(message: String, savedAudioURL: URL?) {
+        self.message = message
+        self.savedAudioURL = savedAudioURL
+    }
+}
+
 public final class AutoScribeController: ObservableObject {
     @Published public private(set) var state: AppState = .idle
     @Published public private(set) var settings: AppSettings
@@ -9,6 +19,7 @@ public final class AutoScribeController: ObservableObject {
     @Published public private(set) var latestOutputURL: URL?
 
     public let silenceDetected = PassthroughSubject<Void, Never>()
+    public let processingFailed = PassthroughSubject<ProcessingFailure, Never>()
 
     private let settingsStore: SettingsStore
     private let audioCaptureService: DualAudioCaptureService
@@ -146,7 +157,44 @@ public final class AutoScribeController: ObservableObject {
             addDiagnostic("Markdown saved to \(outputURL.path)")
             addDiagnostic("Validation output: duration \(Self.durationDescription(capture.session.duration)), path \(outputURL.path)")
         } catch {
-            fail(error)
+            let savedURL = preserveUnprocessedAudio(capture)
+            cleanupTemporaryFiles(for: capture.session)
+            inactivityMonitor?.stop()
+            inactivityMonitor = nil
+
+            let base = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            var message = base
+            if let savedURL {
+                message += " Your recording was saved to \(savedURL.path) so you can process it later."
+            }
+            lastError = message
+            setState(.failed(message))
+            addDiagnostic(message, level: .error)
+            processingFailed.send(ProcessingFailure(message: message, savedAudioURL: savedURL))
+        }
+    }
+
+    private func preserveUnprocessedAudio(_ capture: AudioCaptureResult) -> URL? {
+        guard !capture.files.isEmpty else {
+            return nil
+        }
+
+        let folderName = "\(Self.filenameDateFormatter.string(from: capture.session.startedAt))_unprocessed"
+        let destination = settings.outputDirectory.appendingPathComponent(folderName, isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+            for file in capture.files {
+                let target = destination.appendingPathComponent(file.url.lastPathComponent)
+                try? FileManager.default.removeItem(at: target)
+                try FileManager.default.copyItem(at: file.url, to: target)
+            }
+            return destination
+        } catch {
+            Task { @MainActor in
+                self.addDiagnostic("Could not save unprocessed audio: \(error.localizedDescription)", level: .warning)
+            }
+            return nil
         }
     }
 
@@ -255,6 +303,12 @@ public final class AutoScribeController: ObservableObject {
     private static func durationDescription(_ interval: TimeInterval) -> String {
         "\(Int(interval.rounded()))s"
     }
+
+    private static let filenameDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm"
+        return formatter
+    }()
 
     private static let reportDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

@@ -9,6 +9,7 @@ public enum ProcessingProviderError: Error, LocalizedError {
     case unsupportedLocalMode
     case invalidResponse
     case apiError(String)
+    case quotaExceeded(String)
 
     public var errorDescription: String? {
         switch self {
@@ -19,6 +20,8 @@ public enum ProcessingProviderError: Error, LocalizedError {
         case .invalidResponse:
             "The processing provider returned an invalid response that AutoScribe could not parse."
         case .apiError(let message):
+            message
+        case .quotaExceeded(let message):
             message
         }
     }
