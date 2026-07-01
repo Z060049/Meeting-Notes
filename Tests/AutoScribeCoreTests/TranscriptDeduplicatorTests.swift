@@ -57,6 +57,37 @@ final class TranscriptDeduplicatorTests: XCTestCase {
         XCTAssertEqual(result, transcript)
     }
 
+    func testCollapsesRepeatedHallucinatedSentences() {
+        let transcript = Transcript(segments: [
+            TranscriptSegment(
+                speaker: AudioSource.systemAudio.rawValue,
+                text: "This is a test. This is a test. This is a test. This is a test. Real content here."
+            )
+        ])
+
+        let result = TranscriptDeduplicator.collapseRepeatedSentences(transcript)
+
+        let text = result.segments.first?.text ?? ""
+        let occurrences = text.components(separatedBy: "This is a test.").count - 1
+        XCTAssertEqual(occurrences, 1)
+        XCTAssertTrue(text.contains("Real content here."))
+    }
+
+    func testCollapsePreservesNonConsecutiveRepeats() {
+        let transcript = Transcript(segments: [
+            TranscriptSegment(
+                speaker: AudioSource.systemAudio.rawValue,
+                text: "Yes. No. Yes."
+            )
+        ])
+
+        let result = TranscriptDeduplicator.collapseRepeatedSentences(transcript)
+
+        let text = result.segments.first?.text ?? ""
+        XCTAssertEqual(text.components(separatedBy: "Yes.").count - 1, 2)
+        XCTAssertTrue(text.contains("No."))
+    }
+
     func testFullyDuplicatedMicrophoneSegmentIsDropped() {
         let transcript = Transcript(segments: [
             TranscriptSegment(

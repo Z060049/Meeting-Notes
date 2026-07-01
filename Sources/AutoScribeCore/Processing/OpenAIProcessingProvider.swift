@@ -29,8 +29,9 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
 
         let transcript = try await transcribe(capture: capture, apiKey: apiKey)
         let deduplicated = TranscriptDeduplicator.deduplicate(transcript)
-        let summary = try await summarize(transcript: deduplicated, depth: settings.summaryDepth, apiKey: apiKey)
-        return ProcessingResult(transcript: deduplicated, summary: summary)
+        let cleaned = TranscriptDeduplicator.collapseRepeatedSentences(deduplicated)
+        let summary = try await summarize(transcript: cleaned, depth: settings.summaryDepth, apiKey: apiKey)
+        return ProcessingResult(transcript: cleaned, summary: summary)
     }
 
     private func transcribe(capture: AudioCaptureResult, apiKey: String) async throws -> Transcript {
@@ -40,14 +41,25 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
             guard AudioTranscriptionPolicy.decision(for: file).shouldTranscribe else {
                 continue
             }
-            let response = try await transcribe(fileURL: file.url, source: file.source, apiKey: apiKey)
+
+            guard let uploadURL = try? AudioLevelAnalyzer.trimmedSilence(url: file.url) else {
+                // No signal above the silence threshold: skip to avoid hallucinated filler.
+                continue
+            }
+            defer {
+                if uploadURL != file.url {
+                    try? FileManager.default.removeItem(at: uploadURL)
+                }
+            }
+
+            let response = try await transcribe(fileURL: uploadURL, apiKey: apiKey)
             segments.append(TranscriptSegment(speaker: file.source.rawValue, text: response.text))
         }
 
         return Transcript(segments: segments)
     }
 
-    private func transcribe(fileURL: URL, source: AudioSource, apiKey: String) async throws -> TranscriptionResponse {
+    private func transcribe(fileURL: URL, apiKey: String) async throws -> TranscriptionResponse {
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
         request.httpMethod = "POST"
@@ -59,7 +71,7 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
             fields: [
                 ("model", transcriptionModel),
                 ("response_format", "json"),
-                ("prompt", "Transcribe this \(source.rawValue.lowercased()) stream from a meeting.")
+                ("temperature", "0")
             ],
             fileFieldName: "file",
             fileURL: fileURL,
@@ -128,9 +140,33 @@ public final class OpenAIProcessingProvider: ProcessingProvider, @unchecked Send
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "OpenAI request failed."
-            throw ProcessingProviderError.apiError(message)
+            throw Self.processingError(statusCode: httpResponse.statusCode, responseBody: data)
         }
+    }
+
+    public static func processingError(statusCode: Int, responseBody: Data) -> ProcessingProviderError {
+        let parsed = parseErrorBody(responseBody)
+        let rawFallback = String(data: responseBody, encoding: .utf8) ?? "OpenAI request failed."
+
+        let isQuota = statusCode == 429
+            && (parsed?.type == "insufficient_quota" || parsed?.code == "insufficient_quota")
+        if isQuota {
+            return .quotaExceeded("OpenAI reports your account is out of credits/quota. Add credits to your OpenAI account and try again.")
+        }
+
+        return .apiError(parsed?.message ?? rawFallback)
+    }
+
+    private static func parseErrorBody(_ data: Data) -> (message: String?, type: String?, code: String?)? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = object["error"] as? [String: Any] else {
+            return nil
+        }
+        return (
+            message: error["message"] as? String,
+            type: error["type"] as? String,
+            code: error["code"] as? String
+        )
     }
 
     private static func writeMultipartBody(

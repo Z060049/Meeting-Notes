@@ -52,6 +52,37 @@ public enum TranscriptDeduplicator {
         return Transcript(segments: deduplicatedSegments)
     }
 
+    /// Collapses runs of consecutive identical sentences within each segment
+    /// (e.g. a Whisper hallucination of "This is a test." repeated many times).
+    /// Non-consecutive legitimate repeats are preserved.
+    public static func collapseRepeatedSentences(_ transcript: Transcript) -> Transcript {
+        let collapsedSegments = transcript.segments.compactMap { segment -> TranscriptSegment? in
+            let originalSentences = sentences(in: segment.text)
+            guard !originalSentences.isEmpty else {
+                return segment
+            }
+
+            var kept: [String] = []
+            var previousNormalized: String?
+            for sentence in originalSentences {
+                let normalized = normalize(sentence)
+                if let previousNormalized, normalized == previousNormalized, !normalized.isEmpty {
+                    continue
+                }
+                kept.append(sentence)
+                previousNormalized = normalized
+            }
+
+            let rejoined = kept.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !rejoined.isEmpty else {
+                return nil
+            }
+            return TranscriptSegment(speaker: segment.speaker, startTime: segment.startTime, text: rejoined)
+        }
+
+        return Transcript(segments: collapsedSegments)
+    }
+
     static func sentences(in text: String) -> [String] {
         var results: [String] = []
         var current = ""
