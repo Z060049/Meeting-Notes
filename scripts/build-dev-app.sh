@@ -62,7 +62,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP_DIR"
+codesign --force --deep --sign - \
+  --entitlements "$ROOT_DIR/scripts/dev.entitlements" \
+  "$APP_DIR"
 
 echo "Built $APP_DIR"
 codesign -dv --verbose=2 "$APP_DIR" 2>&1 | sed 's/^/codesign: /'
