@@ -10,6 +10,9 @@ public enum ProcessingProviderError: Error, LocalizedError {
     case invalidResponse
     case apiError(String)
     case quotaExceeded(String)
+    case localModelNotReady(String)
+    case localProcessingError(String)
+    case localUnsupported(String)
 
     public var errorDescription: String? {
         switch self {
@@ -22,6 +25,12 @@ public enum ProcessingProviderError: Error, LocalizedError {
         case .apiError(let message):
             message
         case .quotaExceeded(let message):
+            message
+        case .localModelNotReady(let message):
+            message
+        case .localProcessingError(let message):
+            message
+        case .localUnsupported(let message):
             message
         }
     }

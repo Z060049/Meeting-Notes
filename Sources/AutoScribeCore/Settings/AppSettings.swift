@@ -6,6 +6,26 @@ public enum SummaryDepth: String, CaseIterable, Codable, Sendable {
     case detailed
 }
 
+public enum WhisperModelSize: String, CaseIterable, Codable, Sendable {
+    case tiny = "tiny"
+    case base = "base"
+    case baseEn = "base.en"
+    case small = "small"
+    case medium = "medium"
+
+    public var displayName: String {
+        switch self {
+        case .tiny:   return "Tiny (~39 MB) – Fastest"
+        case .base:   return "Base (~74 MB)"
+        case .baseEn: return "Base English (~74 MB) – Recommended"
+        case .small:  return "Small (~244 MB) – Better accuracy"
+        case .medium: return "Medium (~769 MB) – Best accuracy"
+        }
+    }
+
+    public var modelIdentifier: String { rawValue }
+}
+
 public struct AppSettings: Equatable, Sendable {
     public var processingMode: ProcessingMode
     public var outputDirectory: URL
@@ -13,6 +33,8 @@ public struct AppSettings: Equatable, Sendable {
     public var summaryDepth: SummaryDepth
     public var shouldShowConsentReminder: Bool
     public var hasAcceptedConsentChecklist: Bool
+    public var whisperModel: WhisperModelSize
+    public var localLLMModel: String
 
     public init(
         processingMode: ProcessingMode = .api,
@@ -20,7 +42,9 @@ public struct AppSettings: Equatable, Sendable {
         inactivityTimeoutSeconds: TimeInterval = 180,
         summaryDepth: SummaryDepth = .standard,
         shouldShowConsentReminder: Bool = true,
-        hasAcceptedConsentChecklist: Bool = false
+        hasAcceptedConsentChecklist: Bool = false,
+        whisperModel: WhisperModelSize = .baseEn,
+        localLLMModel: String = "mlx-community/Phi-3.5-mini-instruct-4bit"
     ) {
         self.processingMode = processingMode
         self.outputDirectory = outputDirectory
@@ -28,6 +52,8 @@ public struct AppSettings: Equatable, Sendable {
         self.summaryDepth = summaryDepth
         self.shouldShowConsentReminder = shouldShowConsentReminder
         self.hasAcceptedConsentChecklist = hasAcceptedConsentChecklist
+        self.whisperModel = whisperModel
+        self.localLLMModel = localLLMModel
     }
 }
 
@@ -39,6 +65,8 @@ public final class SettingsStore: @unchecked Sendable {
         static let summaryDepth = "summaryDepth"
         static let shouldShowConsentReminder = "shouldShowConsentReminder"
         static let hasAcceptedConsentChecklist = "hasAcceptedConsentChecklist"
+        static let whisperModel = "whisperModel"
+        static let localLLMModel = "localLLMModel"
     }
 
     private let defaults: UserDefaults
@@ -74,6 +102,16 @@ public final class SettingsStore: @unchecked Sendable {
         }
 
         settings.hasAcceptedConsentChecklist = defaults.bool(forKey: Key.hasAcceptedConsentChecklist)
+
+        if let rawWhisper = defaults.string(forKey: Key.whisperModel),
+           let whisper = WhisperModelSize(rawValue: rawWhisper) {
+            settings.whisperModel = whisper
+        }
+
+        if let llmModel = defaults.string(forKey: Key.localLLMModel), !llmModel.isEmpty {
+            settings.localLLMModel = llmModel
+        }
+
         return settings
     }
 
@@ -84,5 +122,7 @@ public final class SettingsStore: @unchecked Sendable {
         defaults.set(settings.summaryDepth.rawValue, forKey: Key.summaryDepth)
         defaults.set(settings.shouldShowConsentReminder, forKey: Key.shouldShowConsentReminder)
         defaults.set(settings.hasAcceptedConsentChecklist, forKey: Key.hasAcceptedConsentChecklist)
+        defaults.set(settings.whisperModel.rawValue, forKey: Key.whisperModel)
+        defaults.set(settings.localLLMModel, forKey: Key.localLLMModel)
     }
 }

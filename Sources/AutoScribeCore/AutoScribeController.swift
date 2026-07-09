@@ -18,6 +18,10 @@ public final class AutoScribeController: ObservableObject {
     @Published public private(set) var diagnostics: [DiagnosticEvent] = []
     @Published public private(set) var latestOutputURL: URL?
 
+    /// Manages on-device Whisper and LLM models. Observe this in Settings for
+    /// download state and actions.
+    @Published public private(set) var localModelManager: LocalModelManager
+
     public let silenceDetected = PassthroughSubject<Void, Never>()
     public let processingFailed = PassthroughSubject<ProcessingFailure, Never>()
 
@@ -37,18 +41,46 @@ public final class AutoScribeController: ObservableObject {
         self.settingsStore = settingsStore
         self.audioCaptureService = audioCaptureService
         self.markdownExporter = markdownExporter
-        self.settings = settingsStore.load()
-        self.processingProvider = processingProvider ?? OpenAIProcessingProvider {
-            EnvironmentConfiguration.openAIAPIKey()
-        }
+        let loadedSettings = settingsStore.load()
+        self.settings = loadedSettings
+        let manager = LocalModelManager()
+        self.localModelManager = manager
+        self.processingProvider = processingProvider ?? Self.makeProvider(
+            for: loadedSettings,
+            localModelManager: manager
+        )
         Task { @MainActor in
             self.addDiagnostic("Controller initialized. Output folder: \(self.settings.outputDirectory.path)")
         }
     }
 
+    // MARK: - Provider factory
+
+    private static func makeProvider(
+        for settings: AppSettings,
+        localModelManager: LocalModelManager
+    ) -> ProcessingProvider {
+        switch settings.processingMode {
+        case .api:
+            return OpenAIProcessingProvider { EnvironmentConfiguration.openAIAPIKey() }
+        case .local:
+            return LocalProcessingProvider(
+                transcriptionService: localModelManager.transcriptionService,
+                summarizationService: localModelManager.summarizationService
+            )
+        }
+    }
+
+    // MARK: - Settings
+
     @MainActor public func updateSettings(_ settings: AppSettings) {
+        let previousMode = self.settings.processingMode
         self.settings = settings
         settingsStore.save(settings)
+        if settings.processingMode != previousMode {
+            processingProvider = Self.makeProvider(for: settings, localModelManager: localModelManager)
+            addDiagnostic("Processing provider switched to \(settings.processingMode.rawValue) mode.")
+        }
         addDiagnostic("Settings saved. Timeout: \(Int(settings.inactivityTimeoutSeconds))s, output: \(settings.outputDirectory.path)")
     }
 
@@ -141,6 +173,7 @@ public final class AutoScribeController: ObservableObject {
         setState(.processing(capture.session))
         addDiagnostic("Processing session \(Self.shortSessionID(capture.session.id)).")
         addDiagnostic("Processing started with \(capture.files.count) audio file(s).")
+        addDiagnostic("Processing mode: \(settings.processingMode.rawValue).")
         logTranscriptionDecisions(for: capture.files)
 
         do {
