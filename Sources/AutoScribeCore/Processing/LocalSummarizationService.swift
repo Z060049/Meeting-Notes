@@ -7,6 +7,9 @@ import FoundationModels
 #if arch(arm64)
 import MLXLLM
 import MLXLMCommon
+import MLXHuggingFace
+import HuggingFace
+import Tokenizers
 #endif
 
 // MARK: - Tier
@@ -91,6 +94,8 @@ public final class LocalSummarizationService: ObservableObject, @unchecked Senda
         do {
             let config = ModelConfiguration(id: modelID)
             let container = try await LLMModelFactory.shared.loadContainer(
+                from: #hubDownloader(),
+                using: #huggingFaceTokenizerLoader(),
                 configuration: config
             ) { [weak self] progress in
                 Task { await self?.setMLXState(.downloading(progress: progress.fractionCompleted)) }
@@ -174,21 +179,11 @@ public final class LocalSummarizationService: ObservableObject, @unchecked Senda
         }
 
         let prompt = buildPrompt(transcript: transcript, depth: depth)
-        let messages: [[String: String]] = [["role": "user", "content": prompt]]
 
         do {
-            let result = try await container.perform { context in
-                let promptTokens = try context.tokenizer.applyChatTemplate(
-                    messages: messages,
-                    addGenerationPrompt: true
-                )
-                return try generate(
-                    input: .tokens(promptTokens),
-                    parameters: GenerateParameters(temperature: 0.3, maxTokens: 1024),
-                    context: context
-                ) { _ in .more }
-            }
-            return try parseSummaryFromText(result.output)
+            let session = ChatSession(container)
+            let output = try await session.respond(to: prompt)
+            return try parseSummaryFromText(output)
         } catch {
             throw ProcessingProviderError.localProcessingError(
                 "MLX summarization failed: \(error.localizedDescription)"
