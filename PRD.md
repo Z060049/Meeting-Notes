@@ -454,3 +454,53 @@ Target hook once transcription is on-device: "On-device meeting notes for any Ma
 
 - Target user: privacy-conscious individuals vs. a broad prosumer crowd (decides how hard the on-device + open-source bet is worth making).
 - End state: revenue product vs. portfolio/reputation project (decides whether open-source BYOK is the destination or just a beachhead).
+
+---
+
+## 16. DMG Distribution Plan
+
+### 16.1 Goal
+
+Ship a single `.dmg` file that any Mac user can download, drag to Applications, and run immediately — no downloads, no setup, no API keys. Models ship bundled inside the app.
+
+### 16.2 DMG layout
+
+```
+AutoScribe.dmg
+├── AutoScribe.app
+│   └── Contents/
+│       └── Resources/
+│           ├── models/
+│           │   ├── whisper-base.en/        ← bundled WhisperKit CoreML model
+│           │   └── qwen2.5-0.5b-4bit/     ← bundled Qwen MLX weights
+│           └── mlx-swift_Cmlx.bundle      ← pre-compiled Metal shaders
+└── Applications/                           ← symlink (standard DMG pattern)
+```
+
+### 16.3 User experience
+
+1. Download DMG (~500 MB total)
+2. Drag to Applications
+3. Open — works immediately, offline, no setup
+
+### 16.4 "Update model" option in Settings
+
+- Show the currently active model and its version
+- Let users download a larger model (e.g. Whisper `small`, Qwen `1.5B`) for better quality
+- App always falls back to the bundled model if a custom one is not present
+
+### 16.5 Engineering requirements
+
+1. **Apple Developer account** ($99/year) — required for notarization so Gatekeeper does not block the app on first launch
+2. **Provisioning profile** — unlocks `com.apple.developer.foundation-models.inference` entitlement for Apple Intelligence on macOS 26+
+3. **Bundle models at build time** — copy model files into `AutoScribe.app/Contents/Resources/models/` during the release build; update `checkIfDownloaded` / `persistedFolderURL` to check the bundle path as a fallback before the user download cache
+4. **DMG creation script** — `create-dmg` or `hdiutil` to produce a signed, notarized `.dmg` with background image and Applications symlink
+5. **Model update check** — optional background check for newer bundled model versions; prompt user to download upgrade if available
+
+### 16.6 Execution order (deferred)
+
+1. Obtain Apple Developer account and certificate
+2. Add bundled-model fallback path to `WhisperKitTranscriptionService` and `LocalSummarizationService`
+3. Write release build script that copies models into the app bundle
+4. Notarize and create DMG
+5. Add "Update model" UI to Settings
