@@ -8,41 +8,40 @@ struct MenuBarRootView: View {
     @State private var showingDiagnostics = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
+        VStack(alignment: .leading, spacing: 16) {
+            header
 
-                if !controller.settings.hasAcceptedConsentChecklist {
-                    ConsentChecklistView(controller: controller)
-                } else {
-                    controls
-                }
-
-                if let error = controller.lastError {
-                    Text(error)
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                Button("Settings") {
-                    showingSettings = true
-                }
-
-                DisclosureGroup("Debug", isExpanded: $showingDiagnostics) {
-                    DiagnosticsView(controller: controller)
-                        .padding(.top, 6)
-                }
-
-                Button("Quit AutoScribe") {
-                    NSApplication.shared.terminate(nil)
-                }
+            if !controller.settings.hasAcceptedConsentChecklist {
+                ConsentChecklistView(controller: controller)
+            } else {
+                controls
             }
-            .padding()
-            .frame(width: 460)
+
+            if let error = controller.lastError {
+                Text(error)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            Button("Settings") {
+                showingSettings = true
+            }
+
+            DisclosureGroup("Debug", isExpanded: $showingDiagnostics) {
+                DiagnosticsView(controller: controller)
+                    .padding(.top, 6)
+            }
+
+            Button("Quit AutoScribe") {
+                NSApplication.shared.terminate(nil)
+            }
         }
+        .padding()
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
         .sheet(isPresented: $showingSettings) {
             SettingsView(controller: controller)
         }

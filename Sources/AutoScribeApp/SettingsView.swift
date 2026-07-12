@@ -15,93 +15,81 @@ struct SettingsView: View {
     init(controller: AutoScribeController) {
         self.controller = controller
         self.localModelManager = controller.localModelManager
-        _settings = State(initialValue: controller.settings)
+        var visibleSettings = controller.settings
+        visibleSettings.processingMode = .local
+        _settings = State(initialValue: visibleSettings)
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Settings")
-                    .font(.title2)
-                    .bold()
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Settings")
+                .font(.title2)
+                .bold()
 
-                // MARK: Processing mode
-                GroupBox("Processing") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Mode", selection: $settings.processingMode) {
-                            Text("API (OpenAI)").tag(ProcessingMode.api)
-                            Text("Local (on-device)").tag(ProcessingMode.local)
-                        }
-                        .pickerStyle(.segmented)
-
-                        if settings.processingMode == .api {
-                            Text("Set OPENAI_API_KEY in a .env file (project root or ~/Documents/AutoScribe/.env).")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else {
-                            localModeSection
-                        }
-                    }
-                    .padding(4)
+            // MARK: Local processing
+            GroupBox("Local Processing") {
+                VStack(alignment: .leading, spacing: 10) {
+                    localModeSection
                 }
+                .padding(4)
+            }
 
-                // MARK: Summary depth
-                GroupBox("Transcription") {
-                    Picker("Summary Depth", selection: $settings.summaryDepth) {
-                        ForEach(SummaryDepth.allCases, id: \.self) { depth in
-                            Text(depth.rawValue.capitalized).tag(depth)
-                        }
+            // MARK: Summary depth
+            GroupBox("Transcription") {
+                Picker("Summary Depth", selection: $settings.summaryDepth) {
+                    ForEach(SummaryDepth.allCases, id: \.self) { depth in
+                        Text(depth.rawValue.capitalized).tag(depth)
                     }
-                    .padding(4)
                 }
+                .padding(4)
+            }
 
-                // MARK: Inactivity
-                GroupBox("Recording") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Prompt after silence")
-                            TextField("Seconds", value: $settings.inactivityTimeoutSeconds, format: .number)
-                                .frame(width: 80)
-                            Text("seconds")
-                                .foregroundStyle(.secondary)
-                        }
-                        Toggle("Show consent reminder before capture", isOn: $settings.shouldShowConsentReminder)
-                    }
-                    .padding(4)
-                }
-
-                // MARK: Output folder
-                GroupBox("Output") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(settings.outputDirectory.path)
-                            .font(.caption)
+            // MARK: Inactivity
+            GroupBox("Recording") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Prompt after silence")
+                        TextField("Seconds", value: $settings.inactivityTimeoutSeconds, format: .number)
+                            .frame(width: 80)
+                        Text("seconds")
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .textSelection(.enabled)
-                        Button("Choose Folder") {
-                            chooseOutputFolder()
-                        }
                     }
-                    .padding(4)
+                    Toggle("Show consent reminder before capture", isOn: $settings.shouldShowConsentReminder)
                 }
+                .padding(4)
+            }
 
-                if let statusMessage {
-                    Text(statusMessage)
+            // MARK: Output folder
+            GroupBox("Output") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(settings.outputDirectory.path)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .textSelection(.enabled)
+                    Button("Choose Folder") {
+                        chooseOutputFolder()
+                    }
                 }
-
-                HStack {
-                    Spacer()
-                    Button("Cancel") { dismiss() }
-                    Button("Save") { save() }
-                        .keyboardShortcut(.defaultAction)
-                }
+                .padding(4)
             }
-            .padding()
+
+            if let statusMessage {
+                Text(statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Save") { save() }
+                    .keyboardShortcut(.defaultAction)
+            }
         }
+        .padding()
         .frame(width: 480)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: - Local mode section
@@ -109,8 +97,6 @@ struct SettingsView: View {
     @ViewBuilder
     private var localModeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Divider()
-
             // Summarization tier badge
             HStack(spacing: 6) {
                 Image(systemName: tierIconName)

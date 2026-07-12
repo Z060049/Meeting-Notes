@@ -638,3 +638,12 @@ This is a separate product with a separate codebase. Swift code cannot be reused
 | Chip        | Apple Silicon (M1+) | M2+ for faster MLX inference      |
 | RAM         | 8 GB                | 16 GB (headroom for large models) |
 | Storage     | 1 GB free           | 2 GB (room for model upgrades)    |
+
+## 20. Hidden Features
+
+### 20.1 API processing
+
+- The OpenAI API processing mode is hidden from Settings for the local-first release.
+- Settings now exposes only on-device transcription and summarization.
+- The API implementation remains in the codebase; this is a UI-level product decision, not feature removal.
+- API mode may be restored after its setup, privacy messaging, error handling, and product role are clearly defined.
