@@ -507,7 +507,38 @@ AutoScribe.dmg
 
 ---
 
-## 17. Resource Usage Monitoring
+## 17. UX Simplification
+
+### 17.1 Problem
+
+The current UI exposes too much at once — a mode toggle, separate download buttons for two models, an MLX tier badge, a Debug/Diagnostics panel, and multiple overlapping controls. Users shouldn't need to think about which models are loaded or how the pipeline works.
+
+### 17.2 Principles
+
+- **One mode at a time.** The user picks Local or API in Settings and the app operates in that mode. There is no in-session switching or simultaneous use of both.
+- **Hide implementation detail.** Model names, tier badges, and download progress should only appear when the user explicitly goes to manage models. The main view should just say "Ready" or "Download required."
+- **Remove unused controls.** The Debug / Diagnostics section should be hidden behind a developer toggle or removed from the user-facing build entirely.
+
+### 17.3 Specific changes
+
+| Area | Current | Target |
+|---|---|---|
+| Main popover | Shows Settings + Debug + Quit | Shows status, Start/Stop, last output path, Quit |
+| Debug panel | Expanded by default | Hidden by default; accessible via long-press or developer flag |
+| Settings — Local mode | Shows MLX tier badge, model IDs, separate download buttons for Whisper and Qwen | Single "Download models" action; show combined progress; hide model IDs unless expanded |
+| Settings — API mode | Shows OpenAI key field alongside local model section | Only show the controls relevant to the active mode |
+| Mode switching | Available in Settings at any time | Available in Settings; warn if switching while models are downloading |
+
+### 17.4 Execution order
+
+1. Collapse Debug panel and move behind a developer flag
+2. Simplify Settings to show only controls for the active mode
+3. Replace separate Whisper + Qwen download buttons with a single "Set up local models" flow
+4. Polish main popover to show only status, Start/Stop, and last result
+
+---
+
+## 18. Resource Usage Monitoring
 
 ### 17.1 Goal
 
@@ -536,7 +567,7 @@ Show the user real-time memory and CPU usage while the app is recording or proce
 
 ---
 
-## 18. Platform Support
+## 19. Platform Support
 
 ### 18.1 Current: macOS only
 
