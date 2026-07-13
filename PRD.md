@@ -307,19 +307,32 @@ This is the single authoritative backlog and execution order for the project. De
 
 ### Step 1: Testing and validation
 
-Establish a repeatable pass/fail matrix before adding more features:
+Establish a repeatable pass/fail matrix before adding more features.
 
-- Mic-only recording with no Mac output audio.
-- System-audio-only recording using browser playback.
-- Combined mic and system-audio recording.
-- Zoom, Google Meet, and Microsoft Teams.
-- MacBook speakers, wired headphones, and AirPods/Bluetooth.
-- Phone-call audio routed through the Mac.
-- Recordings under 30 seconds and over 5 minutes.
-- Inactivity auto-stop.
-- Both Local and API processing paths.
+Each cell is filled with: ✅ Pass · ❌ Fail · ⚠️ Partial · — Not tested
 
-Done when each test has a recorded result, failures have useful diagnostics, and successful sessions create Markdown in the configured folder.
+#### 1a. Audio route matrix (Local mode)
+
+| Scenario | Mic + MacBook speakers | Mic + Wired headphones | Mic + AirPods |
+|---|---|---|---|
+| Browser playback (YouTube) | — | — | — |
+| Zoom call | — | — | — |
+| Google Meet | — | — | — |
+| Microsoft Teams | — | — | — |
+| Phone call via Mac | — | — | — |
+
+#### 1b. Recording length and behavior
+
+| Scenario | Local mode | API mode |
+|---|---|---|
+| Short recording (<30s) | — | — |
+| Normal recording (2–5 min) | — | — |
+| Long recording (>5 min) | — | — |
+| Inactivity auto-stop | — | — |
+| Mic-only (no system audio) | — | — |
+| System-audio-only (no mic) | — | — |
+
+Done when each cell has a recorded result, failures have useful diagnostics, and successful sessions create Markdown in the configured folder.
 
 ### Step 2: Audio reliability
 
