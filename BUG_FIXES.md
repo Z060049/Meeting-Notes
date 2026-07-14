@@ -12,19 +12,19 @@
 
 ### Symptoms
 
-- AutoScribe appeared to quit unexpectedly on one laptop.
+- MeetingNotes appeared to quit unexpectedly on one laptop.
 - Quitting during recording could discard unsaved audio.
 - There was not enough persistent information to distinguish a crash from a normal exit.
 
 ### Fixes
 
-- Disabled macOS automatic termination while AutoScribe is running.
+- Disabled macOS automatic termination while MeetingNotes is running.
 - Added graceful quit handling for recording and processing states.
 - Added Stop and Save, Continue, and Quit and Discard choices when quitting during recording.
-- Added persistent diagnostic logging at `~/Library/Logs/AutoScribe/AutoScribe.log`.
-- Added abnormal-exit detection and incident bundles under `~/Library/Logs/AutoScribe/Crash Reports`.
+- Added persistent diagnostic logging at `~/Library/Logs/MeetingNotes/MeetingNotes.log`.
+- Added abnormal-exit detection and incident bundles under `~/Library/Logs/MeetingNotes/Crash Reports`.
 - Added a Crash Reports button to Diagnostics.
-- Added recording recovery workspaces under `~/Library/Application Support/AutoScribe/Recording Recovery`.
+- Added recording recovery workspaces under `~/Library/Application Support/MeetingNotes/Recording Recovery`.
 - Added startup reporting for recoverable recordings.
 
 ## Processing appears stuck after recording
@@ -41,7 +41,7 @@ The local MLX model was allowed to generate without a maximum output-token limit
 
 ### Fix
 
-AutoScribe now enforces summary output limits:
+MeetingNotes now enforces summary output limits:
 
 - Brief summary: 384 tokens
 - Standard summary: 640 tokens
@@ -54,14 +54,14 @@ These limits apply only to the generated summary. The full audio transcription i
 ### Symptoms
 
 - In a Zoom/speaker test, the microphone transcript contained the same sentence already captured in the System Audio stream.
-- The summary listed both the Microphone and System Audio versions of identical speech (e.g. "Okay, this is a testing for AutoScribe…" appeared twice).
+- The summary listed both the Microphone and System Audio versions of identical speech (e.g. "Okay, this is a testing for MeetingNotes…" appeared twice).
 
 ### Cause
 
 `TranscriptDeduplicator` compared sentences individually using Levenshtein similarity with a 0.95 threshold and a strict 5% length pre-filter. Speaker bleed introduces small differences between the two streams:
 
 1. Whisper splits the system-audio text differently — a short prefix word (e.g. "Okay.") becomes its own sentence, so the remaining sentence starts one word later than the microphone version.
-2. Punctuation and minor word-boundary differences (e.g. "auto-scribe" → "auto scribe" vs "autoscribe") push character-level similarity just below 0.95 (~0.94), causing the sentence to slip through.
+2. Punctuation and minor word-boundary differences (e.g. "auto-scribe" → "auto scribe" vs "meetingnotes") push character-level similarity just below 0.95 (~0.94), causing the sentence to slip through.
 3. The 5% length pre-filter returned 0 before Levenshtein even ran when the prefix word produced a ~5–10% length gap.
 
 ### Fix
@@ -70,7 +70,7 @@ Three changes to `TranscriptDeduplicator.swift`:
 
 - **Threshold lowered 0.95 → 0.82.** Real-world speaker bleed reduces Levenshtein similarity to ~0.93–0.94 due to short prefix words and minor transcription differences. 0.82 catches these while leaving genuinely unique mic content untouched.
 - **Length pre-filter relaxed 5% → 30%.** The 5% cap was too strict — a single extra prefix word inflates the length difference to ~8–10%, causing the filter to short-circuit and return 0 before comparison.
-- **Jaccard word-overlap added as a second signal.** If two sentences share ≥82% of their unique words, the sentence is treated as a duplicate regardless of character-level differences. This cleanly handles cases like "auto scribe" vs "autoscribe" that confuse Levenshtein.
+- **Jaccard word-overlap added as a second signal.** If two sentences share ≥82% of their unique words, the sentence is treated as a duplicate regardless of character-level differences. This cleanly handles cases like "auto scribe" vs "meetingnotes" that confuse Levenshtein.
 
 ## Summary section contains raw transcript lines instead of insights
 

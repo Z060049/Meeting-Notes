@@ -3,13 +3,13 @@
 import PackageDescription
 
 let package = Package(
-    name: "AutoScribe",
+    name: "MeetingNotes",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "AutoScribe", targets: ["AutoScribeApp"]),
-        .library(name: "AutoScribeCore", targets: ["AutoScribeCore"])
+        .executable(name: "MeetingNotes", targets: ["MeetingNotesApp"]),
+        .library(name: "MeetingNotesCore", targets: ["MeetingNotesCore"])
     ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit", from: "1.0.0"),
@@ -19,7 +19,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AutoScribeCore",
+            name: "MeetingNotesCore",
             dependencies: [
                 .product(name: "WhisperKit", package: "WhisperKit"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
@@ -36,12 +36,12 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "AutoScribeApp",
-            dependencies: ["AutoScribeCore"]
+            name: "MeetingNotesApp",
+            dependencies: ["MeetingNotesCore"]
         ),
         .testTarget(
-            name: "AutoScribeCoreTests",
-            dependencies: ["AutoScribeCore"]
+            name: "MeetingNotesCoreTests",
+            dependencies: ["MeetingNotesCore"]
         )
     ]
 )

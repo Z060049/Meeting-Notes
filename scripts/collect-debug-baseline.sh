@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="$ROOT_DIR/.build/AutoScribe.app"
+APP_DIR="$ROOT_DIR/.build/MeetingNotes.app"
 
 cd "$ROOT_DIR"
 
-echo "AutoScribe debug baseline"
+echo "MeetingNotes debug baseline"
 echo "Captured: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo
 
@@ -47,5 +47,5 @@ else
 fi
 
 echo
-echo "Persistent log: $HOME/Library/Logs/AutoScribe/AutoScribe.log"
-echo "Recovery directory: $HOME/Library/Application Support/AutoScribe/Recording Recovery"
+echo "Persistent log: $HOME/Library/Logs/MeetingNotes/MeetingNotes.log"
+echo "Recovery directory: $HOME/Library/Application Support/MeetingNotes/Recording Recovery"

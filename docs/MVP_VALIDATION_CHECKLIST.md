@@ -1,4 +1,4 @@
-# AutoScribe MVP Validation Checklist
+# MeetingNotes MVP Validation Checklist
 
 Use this checklist for every manual MVP validation pass. Record results in `docs/MVP_TEST_RUN_TEMPLATE.md`.
 
@@ -13,30 +13,30 @@ Use this checklist for every manual MVP validation pass. Record results in `docs
 - [ ] Launch the dev app:
 
   ```sh
-  open .build/AutoScribe.app
+  open .build/MeetingNotes.app
   ```
 
-- [ ] Confirm `AutoScribe` appears in the menu bar.
-- [ ] Open AutoScribe settings and confirm the OpenAI API key is saved.
-- [ ] Confirm output folder is set, usually `~/Documents/AutoScribe/`.
+- [ ] Confirm `MeetingNotes` appears in the menu bar.
+- [ ] Open MeetingNotes settings and confirm the OpenAI API key is saved.
+- [ ] Confirm output folder is set, usually `~/Documents/MeetingNotes/`.
 - [ ] Confirm microphone permission is granted when prompted.
-- [ ] Confirm System Audio Recording Only permission is enabled for `AutoScribe`.
-- [ ] If diagnostics show ScreenCaptureKit fallback, confirm Screen & System Audio Recording permission is enabled for `AutoScribe`.
-- [ ] For shortcut tests, confirm Accessibility permission is trusted in AutoScribe diagnostics.
+- [ ] Confirm System Audio Recording Only permission is enabled for `MeetingNotes`.
+- [ ] If diagnostics show ScreenCaptureKit fallback, confirm Screen & System Audio Recording permission is enabled for `MeetingNotes`.
+- [ ] For shortcut tests, confirm Accessibility permission is trusted in MeetingNotes diagnostics.
 - [ ] Confirm the Debug section is visible and diagnostics can be copied.
 - [ ] Clear diagnostics before each scenario unless the test requires preserving prior state.
 
 ## Pass/Fail Rules
 
 A scenario passes when:
-- AutoScribe reaches `Complete`.
+- MeetingNotes reaches `Complete`.
 - A Markdown file is saved to the configured output folder.
 - The Markdown metadata has the expected duration, processing mode, and audio sources.
 - Transcript content matches the expected source streams.
 - Diagnostics explain the path taken, including file sizes, stream transcription decisions, and output path.
 
 A scenario fails when:
-- AutoScribe reaches `Error`.
+- MeetingNotes reaches `Error`.
 - No Markdown file is generated for a scenario that should complete.
 - Silent audio produces misleading transcript content.
 - Expected source audio is missing from the transcript.

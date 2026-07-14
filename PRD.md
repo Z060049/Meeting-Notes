@@ -1,8 +1,8 @@
-# AutoScribe PRD
+# MeetingNotes PRD
 
 ## 1) Product overview
 
-AutoScribe is a macOS background app that captures both sides of a conversation (microphone + system audio), transcribes it, and outputs clean notes as Markdown.
+MeetingNotes is a macOS background app that captures both sides of a conversation (microphone + system audio), transcribes it, and outputs clean notes as Markdown.
 
 It is designed for real-world meeting workflows where built-in recording is unavailable or restricted (Zoom, Google Meet/Hangouts, Microsoft Teams, phone calls via MacBook audio).
 
@@ -22,14 +22,14 @@ Status as of Jul 12, 2026:
 - Microphone and system audio are captured into separate temporary files.
 - OpenAI API mode can transcribe, summarize, and export Markdown successfully.
 - Local transcription with WhisperKit and local summarization with Foundation Models or MLX have been implemented and tested end-to-end.
-- Markdown output has been validated with a short real recording and saved to `~/Documents/AutoScribe/`.
+- Markdown output has been validated with a short real recording and saved to `~/Documents/MeetingNotes/`.
 - Broader reliability testing, UX simplification, and production packaging remain outstanding.
 
 Current development workflow:
 
 - Build the local test app with `./scripts/build-dev-app.sh`.
-- Launch the app with `open .build/AutoScribe.app`.
-- For shortcut testing, grant Accessibility permission to `.build/AutoScribe.app`.
+- Launch the app with `open .build/MeetingNotes.app`.
+- For shortcut testing, grant Accessibility permission to `.build/MeetingNotes.app`.
 - Store the OpenAI API key through the app settings UI; the key is saved in macOS Keychain.
 
 Validated output example:
@@ -135,7 +135,7 @@ Users need a single Mac-native tool that works everywhere, starts/stops quickly,
 
 ### 6.4 File output
 
-- Save `.md` output to configurable folder (default: `~/Documents/AutoScribe/`)
+- Save `.md` output to configurable folder (default: `~/Documents/MeetingNotes/`)
 - Filename format: `YYYY-MM-DD_HH-mm_<meeting-title-or-generic>.md`
 - Include metadata header:
   - Date/time
@@ -269,10 +269,10 @@ Phase 3:
   - Fix: added Cut, Copy, Paste, and Select All menu commands.
 - Double-tap Command did not trigger recording during development testing.
   - Cause: macOS Accessibility permission was not granted to the launched app/process.
-  - Fix: added diagnostics, first-run permission guidance, settings deep link, and a dev `.app` bundle so AutoScribe appears clearly in Accessibility settings.
+  - Fix: added diagnostics, first-run permission guidance, settings deep link, and a dev `.app` bundle so MeetingNotes appears clearly in Accessibility settings.
 - Accessibility settings were confusing when launching with `swift run`.
   - Cause: macOS associated permissions with the launcher/build artifact rather than a normal app.
-  - Fix: added `scripts/build-dev-app.sh` to create `.build/AutoScribe.app` for realistic local permission testing.
+  - Fix: added `scripts/build-dev-app.sh` to create `.build/MeetingNotes.app` for realistic local permission testing.
 - System audio recording failed with `The audio writer was not available`.
   - Cause: `.m4a` `AVAssetWriterInput` lacked explicit AAC output settings.
   - Fix: configured AAC sample rate, channel count, and bit rate for system audio output.
@@ -291,7 +291,7 @@ Phase 3:
 
 ## 12.2 Known remaining issues and follow-ups
 
-- Accessibility permission is still reported as not trusted in current testing until the user grants permission to `.build/AutoScribe.app` and relaunches.
+- Accessibility permission is still reported as not trusted in current testing until the user grants permission to `.build/MeetingNotes.app` and relaunches.
 - The current `.app` bundle is a development wrapper, not a signed/notarized production app.
 - System-audio silence detection is currently based on file size; it should be upgraded to real audio-level/silence analysis.
 - System audio capture needs broader manual testing across Zoom, Google Meet, Teams, browser playback, speakers, wired headphones, AirPods/Bluetooth routes, and phone-call routing.
@@ -397,7 +397,7 @@ Done when long meetings process without obvious size or timeout failures and use
 - Add launch-at-login after the app bundle is stable.
 - Build, sign, notarize, and test the DMG.
 
-Done when AutoScribe can be installed as a normal Mac app, appears cleanly in permission lists, and passes Gatekeeper on a separate test Mac.
+Done when MeetingNotes can be installed as a normal Mac app, appears cleanly in permission lists, and passes Gatekeeper on a separate test Mac.
 
 ### Step 8: Public release
 
@@ -427,7 +427,7 @@ Done when a new user can download, install, configure, and complete a meeting wi
 
 ## 14) MVP definition (ship criteria)
 
-AutoScribe MVP is ready when:
+MeetingNotes MVP is ready when:
 
 - User can start/stop recording from global shortcut or menu bar
 - App reliably captures mic + system audio in common meeting apps
@@ -438,7 +438,7 @@ AutoScribe MVP is ready when:
 
 ## 15) Distribution and go-to-market recommendation
 
-This section captures the recommended path for distributing and marketing AutoScribe. It supersedes the informal "open source vs. share privately" framing.
+This section captures the recommended path for distributing and marketing MeetingNotes. It supersedes the informal "open source vs. share privately" framing.
 
 ### 15.1 Key constraint
 
@@ -504,8 +504,8 @@ Ship a single `.dmg` file that any Mac user can download, drag to Applications, 
 ### 16.2 DMG layout
 
 ```
-AutoScribe.dmg
-├── AutoScribe.app
+MeetingNotes.dmg
+├── MeetingNotes.app
 │   └── Contents/
 │       └── Resources/
 │           ├── models/
@@ -531,7 +531,7 @@ AutoScribe.dmg
 
 1. **Apple Developer account** ($99/year) — required for notarization so Gatekeeper does not block the app on first launch
 2. **Provisioning profile** — unlocks `com.apple.developer.foundation-models.inference` entitlement for Apple Intelligence on macOS 26+
-3. **Bundle models at build time** — copy model files into `AutoScribe.app/Contents/Resources/models/` during the release build; update `checkIfDownloaded` / `persistedFolderURL` to check the bundle path as a fallback before the user download cache
+3. **Bundle models at build time** — copy model files into `MeetingNotes.app/Contents/Resources/models/` during the release build; update `checkIfDownloaded` / `persistedFolderURL` to check the bundle path as a fallback before the user download cache
 4. **DMG creation script** — `create-dmg` or `hdiutil` to produce a signed, notarized `.dmg` with background image and Applications symlink
 5. **Model update check** — optional background check for newer bundled model versions; prompt user to download upgrade if available
 
@@ -606,7 +606,7 @@ Show the user real-time memory and CPU usage while the app is recording or proce
 
 ### 19.1 Current: macOS only
 
-AutoScribe is macOS-exclusive. Every layer of the stack depends on Apple-only frameworks:
+MeetingNotes is macOS-exclusive. Every layer of the stack depends on Apple-only frameworks:
 
 
 | Component             | Framework                 | Apple-only?         |

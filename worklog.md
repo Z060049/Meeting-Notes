@@ -2,7 +2,7 @@
 
 ## Stability and diagnostics
 
-- Added persistent rotating diagnostic logs under `~/Library/Logs/AutoScribe`.
+- Added persistent rotating diagnostic logs under `~/Library/Logs/MeetingNotes`.
 - Added automatic crash incident bundles with session state, application logs, and matching macOS crash reports.
 - Added recording-recovery storage so unprocessed audio survives unexpected exits.
 - Prevented macOS automatic termination and added safe quit handling while recording or processing.

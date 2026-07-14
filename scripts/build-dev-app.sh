@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/arm64-apple-macosx/debug"
-APP_DIR="$ROOT_DIR/.build/AutoScribe.app"
+APP_DIR="$ROOT_DIR/.build/MeetingNotes.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -48,7 +48,7 @@ fi
 
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$BUILD_DIR/AutoScribe" "$MACOS_DIR/AutoScribe"
+cp "$BUILD_DIR/MeetingNotes" "$MACOS_DIR/MeetingNotes"
 
 # Bundle the MLX metallib so MLX can find it at runtime
 if [ -f "$METALLIB_OUT" ]; then
@@ -78,13 +78,13 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>AutoScribe</string>
+    <string>MeetingNotes</string>
     <key>CFBundleIdentifier</key>
-    <string>com.autoscribe.dev</string>
+    <string>com.meetingnotes.dev</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>AutoScribe</string>
+    <string>MeetingNotes</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundlePackageType</key>
@@ -98,11 +98,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>AutoScribe records your microphone to create meeting transcripts and notes.</string>
+    <string>MeetingNotes records your microphone to create meeting transcripts and notes.</string>
     <key>NSAudioCaptureUsageDescription</key>
-    <string>AutoScribe captures system audio to transcribe meeting participants and remote speakers.</string>
+    <string>MeetingNotes captures system audio to transcribe meeting participants and remote speakers.</string>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>AutoScribe may use screen capture as a temporary fallback for system audio recording during development.</string>
+    <string>MeetingNotes may use screen capture as a temporary fallback for system audio recording during development.</string>
 </dict>
 </plist>
 PLIST

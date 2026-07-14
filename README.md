@@ -1,12 +1,12 @@
-# AutoScribe
+# MeetingNotes
 
 **Everything stays on your Mac. Nothing leaves your machine.**
 
-AutoScribe is a macOS menu-bar app that records and transcribes any meeting or call — locally, in the background, without touching the cloud.
+MeetingNotes is a macOS menu-bar app that records and transcribes any meeting or call — locally, in the background, without touching the cloud.
 
-## Why AutoScribe
+## Why MeetingNotes
 
-Most teams switch between Zoom, Google Meet, Microsoft Teams, and other tools depending on the situation. Sometimes recording is disabled by the host. Sometimes the meeting platform simply doesn't offer it. AutoScribe solves this at the system level — it captures your microphone and your Mac's audio output simultaneously, regardless of which app is playing the audio.
+Most teams switch between Zoom, Google Meet, Microsoft Teams, and other tools depending on the situation. Sometimes recording is disabled by the host. Sometimes the meeting platform simply doesn't offer it. MeetingNotes solves this at the system level — it captures your microphone and your Mac's audio output simultaneously, regardless of which app is playing the audio.
 
 It doesn't integrate with any meeting platform. It doesn't need to. It records what your Mac hears.
 
@@ -21,7 +21,7 @@ It doesn't integrate with any meeting platform. It doesn't need to. It records w
 
 **You are responsible for complying with the recording laws of every jurisdiction involved in your call.**
 
-AutoScribe is a system-level audio capture tool. It cannot verify whether the people you are recording have consented. Recording a conversation without the other participants' knowledge or consent may be a criminal offence depending on where you and they are located.
+MeetingNotes is a system-level audio capture tool. It cannot verify whether the people you are recording have consented. Recording a conversation without the other participants' knowledge or consent may be a criminal offence depending on where you and they are located.
 
 ### One-party vs. all-party consent
 
@@ -52,7 +52,7 @@ New South Wales, South Australia, Western Australia, Tasmania, and the ACT. Pena
 
 ### The safe rule
 
-**Tell everyone on the call that you are recording before you start.** This satisfies the consent requirement in virtually every jurisdiction and eliminates legal ambiguity entirely. AutoScribe's built-in consent reminder (enabled by default in Settings) is designed to help you build this habit.
+**Tell everyone on the call that you are recording before you start.** This satisfies the consent requirement in virtually every jurisdiction and eliminates legal ambiguity entirely. MeetingNotes's built-in consent reminder (enabled by default in Settings) is designed to help you build this habit.
 
 ## Requirements
 
@@ -81,7 +81,7 @@ On macOS 26 with Apple Intelligence enabled, no model download is needed for sum
 
 ## Output
 
-Each recording saves a single Markdown file to `~/Documents/AutoScribe/`:
+Each recording saves a single Markdown file to `~/Documents/MeetingNotes/`:
 
 ```
 2026-07-13_14-30_project-sync.md
@@ -96,7 +96,7 @@ The file contains:
 
 ```sh
 ./scripts/build-dev-app.sh
-open .build/AutoScribe.app
+open .build/MeetingNotes.app
 ```
 
 On first launch, grant the following permissions when prompted:
@@ -115,7 +115,7 @@ Recording is started and stopped from the menu bar.
 | Summary depth | Standard |
 | Language model | Qwen 2.5 0.5B (optional download) |
 | Inactivity timeout | 300 seconds |
-| Output folder | `~/Documents/AutoScribe/` |
+| Output folder | `~/Documents/MeetingNotes/` |
 | Consent reminder | On |
 
 ## Test
@@ -126,9 +126,9 @@ swift test
 
 ## Diagnostics and recovery
 
-Logs are written to `~/Library/Logs/AutoScribe/AutoScribe.log`.
+Logs are written to `~/Library/Logs/MeetingNotes/MeetingNotes.log`.
 
-If the app exits unexpectedly during a recording, the audio is preserved in `~/Library/Application Support/AutoScribe/Recording Recovery/` and reported at next launch.
+If the app exits unexpectedly during a recording, the audio is preserved in `~/Library/Application Support/MeetingNotes/Recording Recovery/` and reported at next launch.
 
 ## Status
 

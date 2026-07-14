@@ -1,4 +1,4 @@
-# AutoScribe MVP Test Run
+# MeetingNotes MVP Test Run
 
 Copy this template for each validation pass. Use `docs/MVP_VALIDATION_CHECKLIST.md` for scenario steps.
 
@@ -8,7 +8,7 @@ Copy this template for each validation pass. Use `docs/MVP_VALIDATION_CHECKLIST.
 - Tester:
 - App commit SHA:
 - Build command used: `./scripts/build-dev-app.sh`
-- Launch command used: `open .build/AutoScribe.app`
+- Launch command used: `open .build/MeetingNotes.app`
 - macOS version:
 - Mac model/chip:
 - Audio input device:
