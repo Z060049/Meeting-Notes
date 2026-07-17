@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/arm64-apple-macosx/debug"
-APP_DIR="$ROOT_DIR/.build/MeetingNotes.app"
+OUTPUT_DIR="$ROOT_DIR/build"
+APP_DIR="$OUTPUT_DIR/MeetingNotes.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -46,6 +47,7 @@ else
   echo "MLX metallib already compiled (cached)"
 fi
 
+mkdir -p "$OUTPUT_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BUILD_DIR/MeetingNotes" "$MACOS_DIR/MeetingNotes"

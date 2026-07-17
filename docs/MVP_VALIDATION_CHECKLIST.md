@@ -13,7 +13,7 @@ Use this checklist for every manual MVP validation pass. Record results in `docs
 - [ ] Launch the dev app:
 
   ```sh
-  open .build/MeetingNotes.app
+  open build/MeetingNotes.app
   ```
 
 - [ ] Confirm `MeetingNotes` appears in the menu bar.

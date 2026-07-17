@@ -2,11 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_DIR="$ROOT_DIR/.build/MeetingNotes.app"
+OUTPUT_DIR="$ROOT_DIR/build"
+APP_DIR="$OUTPUT_DIR/MeetingNotes.app"
 STAGING_DIR="$ROOT_DIR/.build/MeetingNotes-dmg"
-DMG_PATH="$ROOT_DIR/.build/MeetingNotes-0.1.0-arm64.dmg"
+DMG_PATH="$OUTPUT_DIR/MeetingNotes-0.1.0-arm64.dmg"
 
 "$ROOT_DIR/scripts/build-dev-app.sh"
+mkdir -p "$OUTPUT_DIR"
 
 # Never distribute credentials inside the application bundle. MeetingNotes also
 # reads ~/.meetingnotes/.env and ~/Documents/MeetingNotes/.env at runtime.

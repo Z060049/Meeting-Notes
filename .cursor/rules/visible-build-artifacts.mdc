@@ -1,0 +1,10 @@
+---
+description: Keep user-facing build artifacts in a visible folder
+alwaysApply: true
+---
+
+# Visible Build Artifacts
+
+- Put distributable artifacts such as `MeetingNotes.app` and `.dmg` files in the visible `build/` directory.
+- Use `.build/` only for Swift Package Manager caches and temporary staging.
+- Update build scripts and documentation to reference `build/` for artifacts users open, test, or distribute.

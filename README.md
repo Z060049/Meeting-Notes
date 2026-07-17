@@ -98,7 +98,7 @@ The file contains:
 
 ```sh
 ./scripts/build-dev-app.sh
-open .build/MeetingNotes.app
+open build/MeetingNotes.app
 ```
 
 On first launch, grant the following permissions when prompted:

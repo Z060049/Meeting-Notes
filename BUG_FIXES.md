@@ -131,6 +131,34 @@ MeetingNotes preferred a Core Audio process tap that created a private aggregate
 - Confirmed Zoom works when it starts before MeetingNotes.
 - Confirmed diagnostics identify ScreenCaptureKit as the system-audio backend.
 
+## Onboarding quits but does not reopen after granting system-audio access
+
+### Symptoms
+
+- During onboarding, MeetingNotes asks the user to grant Screen & System Audio Recording access.
+- The restart action quits MeetingNotes as expected, but the app does not reopen automatically.
+- The user must launch MeetingNotes manually to continue onboarding.
+
+### Steps to reproduce
+
+1. Install and open MeetingNotes.
+2. Continue through onboarding to Screen & System Audio Recording permission.
+3. Grant MeetingNotes access in System Settings.
+4. Return to onboarding and click **Restart MeetingNotes**.
+5. Observe that MeetingNotes quits but does not relaunch.
+
+### Expected behavior
+
+MeetingNotes should quit and reopen automatically, then verify the permission and resume onboarding.
+
+### Actual behavior
+
+MeetingNotes quits successfully but remains closed.
+
+### Status
+
+Open. The relaunch mechanism has not yet been investigated.
+
 ## Verification
 
 - Confirmed that audio remained available in Recording Recovery after terminating the stuck process.

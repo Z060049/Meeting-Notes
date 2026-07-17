@@ -28,8 +28,8 @@ Status as of Jul 12, 2026:
 Current development workflow:
 
 - Build the local test app with `./scripts/build-dev-app.sh`.
-- Launch the app with `open .build/MeetingNotes.app`.
-- For shortcut testing, grant Accessibility permission to `.build/MeetingNotes.app`.
+- Launch the app with `open build/MeetingNotes.app`.
+- For shortcut testing, grant Accessibility permission to `build/MeetingNotes.app`.
 - Store the Groq API key through the app settings UI; the key is saved in macOS Keychain.
 
 Validated output example:
@@ -272,7 +272,7 @@ Phase 3:
   - Fix: added diagnostics, first-run permission guidance, settings deep link, and a dev `.app` bundle so MeetingNotes appears clearly in Accessibility settings.
 - Accessibility settings were confusing when launching with `swift run`.
   - Cause: macOS associated permissions with the launcher/build artifact rather than a normal app.
-  - Fix: added `scripts/build-dev-app.sh` to create `.build/MeetingNotes.app` for realistic local permission testing.
+  - Fix: added `scripts/build-dev-app.sh` to create `build/MeetingNotes.app` for realistic local permission testing.
 - System audio recording failed with `The audio writer was not available`.
   - Cause: `.m4a` `AVAssetWriterInput` lacked explicit AAC output settings.
   - Fix: configured AAC sample rate, channel count, and bit rate for system audio output.
@@ -291,7 +291,7 @@ Phase 3:
 
 ## 12.2 Known remaining issues and follow-ups
 
-- Accessibility permission is still reported as not trusted in current testing until the user grants permission to `.build/MeetingNotes.app` and relaunches.
+- Accessibility permission is still reported as not trusted in current testing until the user grants permission to `build/MeetingNotes.app` and relaunches.
 - The current `.app` bundle is a development wrapper, not a signed/notarized production app.
 - System-audio silence detection is currently based on file size; it should be upgraded to real audio-level/silence analysis.
 - System audio capture needs broader manual testing across Zoom, Google Meet, Teams, browser playback, speakers, wired headphones, AirPods/Bluetooth routes, and phone-call routing.
