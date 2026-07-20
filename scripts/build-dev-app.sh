@@ -107,9 +107,24 @@ cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --deep --sign - \
-  --entitlements "$ROOT_DIR/scripts/dev.entitlements" \
-  "$APP_DIR"
+# Prefer a stable self-signed identity so TCC permissions (Microphone, Screen
+# Recording) survive rebuilds. Ad-hoc signing changes the cdhash every build,
+# which invalidates granted permissions and re-triggers the onboarding loop.
+# Create the identity once with ./scripts/create-dev-signing-identity.sh
+SIGNING_IDENTITY="${MEETINGNOTES_SIGNING_IDENTITY:-MeetingNotes Dev Signing}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -Fq "$SIGNING_IDENTITY"; then
+  echo "Signing with stable identity: $SIGNING_IDENTITY"
+  codesign --force --deep --sign "$SIGNING_IDENTITY" \
+    --entitlements "$ROOT_DIR/scripts/dev.entitlements" \
+    "$APP_DIR"
+else
+  echo "WARNING: stable signing identity '$SIGNING_IDENTITY' not found; falling back to ad-hoc."
+  echo "         TCC permissions will reset on every rebuild and onboarding may loop."
+  echo "         Run ./scripts/create-dev-signing-identity.sh once to fix this permanently."
+  codesign --force --deep --sign - \
+    --entitlements "$ROOT_DIR/scripts/dev.entitlements" \
+    "$APP_DIR"
+fi
 
 echo "Built $APP_DIR"
 codesign -dv --verbose=2 "$APP_DIR" 2>&1 | sed 's/^/codesign: /'

@@ -292,8 +292,8 @@ struct OnboardingView: View {
     private var systemAudioStep: some View {
         stepLayout(
             symbol: "macbook.and.iphone",
-            title: "Capture the meeting audio",
-            message: "Screen & System Audio Recording lets MeetingNotes hear people speaking through Zoom, Meet, Teams, or any other app. MeetingNotes does not save screen video."
+            title: "Capture the meeting audio (optional)",
+            message: "Screen & System Audio Recording lets MeetingNotes hear people speaking through Zoom, Meet, Teams, or any other app. MeetingNotes does not save screen video. You can skip this and still record your microphone — enable it anytime in Settings."
         ) {
             VStack(spacing: 14) {
                 HStack(spacing: 18) {
@@ -342,6 +342,13 @@ struct OnboardingView: View {
                     title: "Screen & System Audio Recording",
                     state: controller.permissionSnapshot.screenCapture
                 )
+                if !controller.permissionSnapshot.screenCapture.isAuthorized {
+                    Text("System audio is optional. Recordings will capture your microphone; enable system audio anytime in Settings to also capture other participants.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: 480)
         }
@@ -378,6 +385,9 @@ struct OnboardingView: View {
             case .systemAudio:
                 systemAudioAction
             case .restart:
+                Button("Set up later") {
+                    flow.move(to: .ready)
+                }
                 Button("Open System Settings") {
                     controller.openScreenCaptureSettings()
                 }
@@ -385,7 +395,7 @@ struct OnboardingView: View {
                     onRestart()
                 }
             case .ready:
-                if controller.permissionSnapshot.isReady && controller.isProcessingSetupReady {
+                if controller.permissionSnapshot.microphone.isAuthorized && controller.isProcessingSetupReady {
                     primaryButton("Finish") {
                         controller.completeOnboarding()
                         if controller.isSetupComplete {
@@ -397,11 +407,7 @@ struct OnboardingView: View {
                         if !controller.isProcessingSetupReady {
                             flow.move(to: .processing)
                         } else {
-                            flow.move(
-                                to: controller.permissionSnapshot.microphone.isAuthorized
-                                    ? .systemAudio
-                                    : .microphone
-                            )
+                            flow.move(to: .microphone)
                         }
                     }
                 }
@@ -436,6 +442,9 @@ struct OnboardingView: View {
                 flow.move(to: .ready)
             }
         } else {
+            Button("Set up later") {
+                flow.move(to: .ready)
+            }
             primaryButton("Enable System Audio") {
                 controller.requestScreenCaptureAccess()
                 flow.move(to: .restart)

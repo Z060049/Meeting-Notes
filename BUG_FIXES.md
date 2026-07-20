@@ -131,13 +131,13 @@ MeetingNotes preferred a Core Audio process tap that created a private aggregate
 - Confirmed Zoom works when it starts before MeetingNotes.
 - Confirmed diagnostics identify ScreenCaptureKit as the system-audio backend.
 
-## Onboarding quits but does not reopen after granting system-audio access
+## Onboarding does not reappear after granting system-audio access
 
 ### Symptoms
 
 - During onboarding, MeetingNotes asks the user to grant Screen & System Audio Recording access.
-- The restart action quits MeetingNotes as expected, but the app does not reopen automatically.
-- The user must launch MeetingNotes manually to continue onboarding.
+- The restart action quits MeetingNotes as expected, but no onboarding window reappears.
+- MeetingNotes relaunches as a background menu-bar process, so the user must open it manually to continue onboarding.
 
 ### Steps to reproduce
 
@@ -145,19 +145,30 @@ MeetingNotes preferred a Core Audio process tap that created a private aggregate
 2. Continue through onboarding to Screen & System Audio Recording permission.
 3. Grant MeetingNotes access in System Settings.
 4. Return to onboarding and click **Restart MeetingNotes**.
-5. Observe that MeetingNotes quits but does not relaunch.
+5. Observe that MeetingNotes relaunches without showing onboarding.
 
 ### Expected behavior
 
-MeetingNotes should quit and reopen automatically, then verify the permission and resume onboarding.
+MeetingNotes should quit and reopen automatically, bring onboarding to the front, verify the permission, and resume at the Ready screen.
 
 ### Actual behavior
 
-MeetingNotes quits successfully but remains closed.
+MeetingNotes relaunches in the background without making the onboarding window visible.
+
+### Cause
+
+The relaunch helper successfully started a new MeetingNotes process, but macOS classified the `LSUIElement` app as background/not visible. The app did not preserve an explicit permission-relaunch signal for startup, and the normal window activation call was not sufficient to bring onboarding forward from that launch state.
+
+### Fix
+
+- Preserve whether the controller was initialized after a requested permission relaunch.
+- Force onboarding presentation when that relaunch signal is present, even if other setup state appears complete.
+- Bring the onboarding window forward with `orderFrontRegardless`, activate all app windows, and retry activation after AppKit restores the menu-bar scene.
+- Add persistent diagnostics for the onboarding launch decision and window visibility.
 
 ### Status
 
-Open. The relaunch mechanism has not yet been investigated.
+Fix implemented; installed-DMG verification is still required.
 
 ## Verification
 

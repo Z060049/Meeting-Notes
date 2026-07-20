@@ -162,6 +162,35 @@ final class OnboardingFlowTests: XCTestCase {
         try? controller.saveGroqAPIKey("gsk_test")
         XCTAssertTrue(controller.isSetupComplete)
     }
+
+    @MainActor
+    func testControllerRemembersPermissionRelaunchForAppStartup() {
+        let suiteName = "MeetingNotesRelaunchTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsStore(defaults: defaults)
+        store.save(
+            AppSettings(
+                hasAcceptedConsentChecklist: true,
+                hasSelectedProcessingMode: true,
+                hasRequestedScreenCapturePermission: true,
+                isAwaitingScreenCaptureRelaunch: true
+            )
+        )
+
+        let controller = MeetingNotesController(
+            settingsStore: store,
+            permissionService: FakePermissionService(
+                microphone: .authorized,
+                screenCapture: .authorized
+            ),
+            credentialStore: FakeCredentialStore()
+        )
+
+        XCTAssertTrue(controller.didResumeAfterScreenCaptureRelaunch)
+        XCTAssertFalse(controller.settings.isAwaitingScreenCaptureRelaunch)
+        XCTAssertFalse(store.load().isAwaitingScreenCaptureRelaunch)
+    }
 }
 
 private final class FakePermissionService: PermissionServicing {

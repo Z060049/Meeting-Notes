@@ -20,6 +20,7 @@ public final class MeetingNotesController: ObservableObject {
     @Published public private(set) var latestRawTranscriptURL: URL?
     @Published public private(set) var routeTransitionMessage: String?
     @Published public private(set) var permissionSnapshot: PermissionSnapshot
+    public let didResumeAfterScreenCaptureRelaunch: Bool
 
     /// Manages on-device Whisper and LLM models. Observe this in Settings for
     /// download state and actions.
@@ -56,6 +57,7 @@ public final class MeetingNotesController: ObservableObject {
         self.audioCaptureService = audioCaptureService
         self.markdownExporter = markdownExporter
         var loadedSettings = settingsStore.load()
+        self.didResumeAfterScreenCaptureRelaunch = loadedSettings.isAwaitingScreenCaptureRelaunch
         if loadedSettings.isAwaitingScreenCaptureRelaunch {
             loadedSettings.isAwaitingScreenCaptureRelaunch = false
             settingsStore.save(loadedSettings)
@@ -88,10 +90,12 @@ public final class MeetingNotesController: ObservableObject {
     }
 
     public var isSetupComplete: Bool {
+        // Screen & system audio recording is optional: capture falls back to
+        // microphone-only when it is unavailable, so it must not block setup.
         settings.hasAcceptedConsentChecklist
             && settings.hasCompletedOnboarding
             && settings.hasSelectedProcessingMode
-            && permissionSnapshot.isReady
+            && permissionSnapshot.microphone.isAuthorized
             && isProcessingSetupReady
     }
 
@@ -236,7 +240,7 @@ public final class MeetingNotesController: ObservableObject {
         refreshPermissionStatus()
         guard settings.hasAcceptedConsentChecklist,
               settings.hasSelectedProcessingMode,
-              permissionSnapshot.isReady,
+              permissionSnapshot.microphone.isAuthorized,
               isProcessingSetupReady else {
             addDiagnostic("Onboarding completion blocked because setup is incomplete.", level: .warning)
             return
@@ -270,7 +274,7 @@ public final class MeetingNotesController: ObservableObject {
                     ? "Add your Groq API key before recording."
                     : "Download the required local models before recording."
             } else {
-                lastError = "Finish setup and grant Microphone and Screen & System Audio Recording access before starting."
+                lastError = "Finish setup and grant Microphone access before starting."
             }
             addDiagnostic(lastError ?? "Setup required.", level: .warning)
             onboardingRequested.send()

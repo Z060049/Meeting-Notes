@@ -4,11 +4,12 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let controller = MeetingNotesController()
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var popoverHostingController: NSHostingController<MenuBarRootView>?
+    private var outsideClickMonitor: Any?
     private var onboardingWindowController: OnboardingWindowController?
     private var cancellables = Set<AnyCancellable>()
     private var isShowingSilenceAlert = false
@@ -39,7 +40,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bindProcessingFailure()
         bindPermissionRefresh()
 
-        if !controller.isSetupComplete {
+        let shouldPresentOnboarding = controller.didResumeAfterScreenCaptureRelaunch
+            || !controller.isSetupComplete
+        PersistentDiagnosticLog.shared.log(
+            "Onboarding launch decision: present=\(shouldPresentOnboarding), "
+                + "resumedAfterPermissionRelaunch=\(controller.didResumeAfterScreenCaptureRelaunch), "
+                + "setupComplete=\(controller.isSetupComplete)."
+        )
+        if shouldPresentOnboarding {
             DispatchQueue.main.async { [weak self] in
                 self?.presentOnboarding()
             }
@@ -62,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        stopOutsideClickMonitor()
         PersistentDiagnosticLog.shared.log("Application will terminate normally.")
         if let incidentURL = CrashLogManager.shared.markCleanShutdown(finalState: controller.state.title) {
             PersistentDiagnosticLog.shared.log(
@@ -110,6 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configurePopover() {
         let popover = NSPopover()
         popover.behavior = .transient
+        popover.delegate = self
         let hostingController = NSHostingController(
             rootView: MenuBarRootView(
                 controller: controller,
@@ -133,6 +143,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         resizePopoverToFit()
     }
 
+    func applicationDidResignActive(_ notification: Notification) {
+        closePopover()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        stopOutsideClickMonitor()
+    }
+
+    private func closePopover() {
+        guard popover?.isShown == true else {
+            return
+        }
+        PersistentDiagnosticLog.shared.log("Closing menu-bar popover.")
+        popover?.performClose(nil)
+    }
+
+    private func startOutsideClickMonitor() {
+        guard outsideClickMonitor == nil else {
+            return
+        }
+
+        // Status-item popovers do not reliably receive AppKit transient dismissal
+        // when the user clicks another menu-bar app. Monitor mouse-downs delivered
+        // to other apps while ours is shown.
+        PersistentDiagnosticLog.shared.log("Started outside-click monitor for menu-bar popover.")
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                PersistentDiagnosticLog.shared.log(
+                    "Outside mouse-down received; dismissing menu-bar popover."
+                )
+                self?.closePopover()
+            }
+        }
+    }
+
+    private func stopOutsideClickMonitor() {
+        guard let outsideClickMonitor else {
+            return
+        }
+        NSEvent.removeMonitor(outsideClickMonitor)
+        self.outsideClickMonitor = nil
+    }
+
     private func configureOnboarding() {
         onboardingWindowController = OnboardingWindowController(controller: controller)
         controller.onboardingRequested
@@ -144,7 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func presentOnboarding() {
-        popover?.performClose(nil)
+        closePopover()
         onboardingWindowController?.present()
     }
 
@@ -359,16 +414,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if popover.isShown {
-            popover.performClose(nil)
+            closePopover()
         } else {
             resizePopoverToFit()
+            // Do not call NSApp.activate here. Activating an LSUIElement /
+            // accessory app for a status-item popover leaves a persistent
+            // full-screen focus frame after dismiss; FreeFlow-style menus avoid
+            // that by not stealing activation.
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            startOutsideClickMonitor()
+            PersistentDiagnosticLog.shared.log(
+                "Menu-bar popover shown (isShown=\(popover.isShown))."
+            )
             // Re-measure after AppKit installs the hosting view in the popover
             // window; its first off-window fitting size can be incomplete.
             Task { @MainActor [weak self] in
                 self?.resizePopoverToFit()
             }
-            NSApp.activate(ignoringOtherApps: true)
         }
     }
 }
