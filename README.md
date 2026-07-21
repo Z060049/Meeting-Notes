@@ -8,9 +8,7 @@ MeetingNotes is a macOS menu-bar app that records and transcribes any meeting or
 
 ## Demo
 
-[![Watch the MeetingNotes demo](https://i.ytimg.com/vi/7z6SuMq1Gik/hqdefault.jpg)](https://www.youtube.com/watch?v=7z6SuMq1Gik)
-
-Click the preview to watch **Meeting Notes** by [Monkey Software](https://www.youtube.com/@Monkey_Software) on YouTube.
+![MeetingNotes demo](docs/meetingnotes-demo.gif)
 
 ## Why MeetingNotes
 
