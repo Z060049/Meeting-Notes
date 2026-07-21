@@ -6,6 +6,9 @@ MeetingNotes is a macOS menu-bar app that records and transcribes any meeting or
 
 <img width="627" height="503" alt="Screenshot 2026-07-15 at 2 10 13 PM" src="https://github.com/user-attachments/assets/f023c2f1-5f18-4914-a968-759b63def645" />
 
+
+
+
 ## Why MeetingNotes
 
 Most teams switch between Zoom, Google Meet, Microsoft Teams, and other tools depending on the situation. Sometimes recording is disabled by the host. Sometimes the meeting platform simply doesn't offer it. MeetingNotes solves this at the system level — it captures your microphone and your Mac's audio output simultaneously, regardless of which app is playing the audio.
